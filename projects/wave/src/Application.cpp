@@ -72,7 +72,7 @@ namespace AF
 		});
 
 		glfwMakeContextCurrent(m_Window);
-		glfwSwapInterval(0);
+		glfwSwapInterval(1);
 
 		AF_ASSERT(gladLoadGLLoader((GLADloadproc) glfwGetProcAddress), "Failed to load opengl");
 
