@@ -72,6 +72,8 @@ namespace AF
 		});
 
 		glfwMakeContextCurrent(m_Window);
+		glfwSwapInterval(0);
+
 		AF_ASSERT(gladLoadGLLoader((GLADloadproc) glfwGetProcAddress), "Failed to load opengl");
 
 		m_Ctx = nvgCreateGL3(NVG_ANTIALIAS | NVG_STENCIL_STROKES);
