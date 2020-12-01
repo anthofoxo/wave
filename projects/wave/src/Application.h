@@ -15,10 +15,10 @@ namespace AF
 		void Start();
 		void Stop();
 
+		void EarlyInit();
 		void Init();
 		void Destroy();
 
-		void EarlyUpdate();
 		void Update();
 
 		void Resize(glm::vec2 size);

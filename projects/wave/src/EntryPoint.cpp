@@ -14,10 +14,16 @@
 	#define AF_CONF_STR "DEBUG"
 #elif defined(AF_CONF_RELEASE)
 	#define AF_CONF_STR "RELEASE"
-#elif defines(AF_CONF_DIST)
+#elif defined(AF_CONF_DIST)
 	#define AF_CONF_STR "DIST"
 #else
-	#define AF_CONF_STR "?"
+	#error "Invalid configuration"
+#endif
+
+#define AF_MAIN() int main(int, char**)
+#if defined(AF_PLAT_WINDOWS) && defined(AF_CONF_DIST)
+	#undef AF_MAIN
+	#define AF_MAIN() int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
 #endif
 
 struct EntityManager;
@@ -67,20 +73,14 @@ struct EntityManager
 	{
 		std::vector<std::shared_ptr<Entity>> theOnesThatWantKilled;
 
-		if (m_Entities.size() > 0)
+		for (int i = static_cast<int>(m_Entities.size()) - 1; i >= 0; --i)
 		{
-			//for (auto& entity : m_Entities)
-			for (int i = m_Entities.size() - 1; i >= 0; --i)
-			{
-				auto entity = m_Entities[i];
-				entity->Update();
+			auto entity = m_Entities[i];
+			entity->Update();
 
-				if (entity->m_KillMe)
-					theOnesThatWantKilled.push_back(entity);
-			}
+			if (entity->m_KillMe)
+				theOnesThatWantKilled.push_back(entity);
 		}
-
-	
 
 		for (auto& entity : theOnesThatWantKilled)
 		{
@@ -131,7 +131,7 @@ public:
 
 	virtual void Behaviour() override
 	{
-		m_CurrentLifetime -= m_Manager->m_State->GetStateManager()->GetApplication()->m_DeltaTime;
+		m_CurrentLifetime -= static_cast<float>(m_Manager->m_State->GetStateManager()->GetApplication()->m_DeltaTime);
 
 		if (m_CurrentLifetime <= 0)
 		{
@@ -195,7 +195,7 @@ public:
 		if (m_Position.x < -m_Size.x * 2.0f) m_KillMe = true;
 		if (m_Position.y < -m_Size.y * 2.0f) m_KillMe = true;
 
-		m_Timer += m_Manager->m_State->GetStateManager()->GetApplication()->m_DeltaTime;
+		m_Timer += static_cast<float>(m_Manager->m_State->GetStateManager()->GetApplication()->m_DeltaTime);
 
 		if (m_Timer > 0.05f)
 		{
@@ -288,7 +288,7 @@ public:
 	double m_Timer = 0.0;
 };
 
-int main(int, char**)
+AF_MAIN()
 {
 	AF::CreateLogger();
 

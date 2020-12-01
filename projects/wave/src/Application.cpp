@@ -2,6 +2,8 @@
 
 #define NANOVG_GL3_IMPLEMENTATION
 
+#include <thread>
+
 #include <glad/glad.h>
 #include <nanovg.h>
 #include <nanovg_gl.h>
@@ -16,20 +18,31 @@ namespace AF
 		if (m_Running) return;
 		m_Running = true;
 
-		Init();
+		EarlyInit();
 
-		double lastTime = glfwGetTime();
-		double currentTime;
+		std::thread thread = std::thread([&]()
+		{
+			Init();
+
+			double lastTime = glfwGetTime();
+			double currentTime;
+
+			while (m_Running)
+			{
+				currentTime = glfwGetTime();
+				m_DeltaTime = currentTime - lastTime;
+				lastTime = currentTime;
+
+				Update();
+			}
+		});
 
 		while (m_Running)
 		{
-			currentTime = glfwGetTime();
-			m_DeltaTime = currentTime - lastTime;
-			lastTime = currentTime;
-
-			EarlyUpdate();
-			Update();
+			glfwPollEvents();
 		}
+
+		thread.join();
 
 		Destroy();
 	}
@@ -39,7 +52,7 @@ namespace AF
 		m_Running = false;
 	}
 
-	void Application::Init()
+	void Application::EarlyInit()
 	{
 		AF_ASSERT(glfwInit(), "Failed to initialze glfw");
 
@@ -52,7 +65,7 @@ namespace AF
 		m_Window = glfwCreateWindow(static_cast<int>(m_Size.x), static_cast<int>(m_Size.y), m_Title, nullptr, nullptr);
 		AF_ASSERT(m_Window, "Failed to create window");
 
-		// glfwSetWindowAspectRatio(m_Window, m_Size.x, m_Size.y);
+		glfwSetWindowAspectRatio(m_Window, m_Size.x, m_Size.y);
 
 		glfwSetWindowUserPointer(m_Window, this);
 
@@ -65,12 +78,10 @@ namespace AF
 		{
 			static_cast<Application*>(glfwGetWindowUserPointer(window))->Resize({ width, height });
 		});
+	}
 
-		glfwSetWindowRefreshCallback(m_Window, [](GLFWwindow* window)
-		{
-			static_cast<Application*>(glfwGetWindowUserPointer(window))->Update();
-		});
-
+	void Application::Init()
+	{
 		glfwMakeContextCurrent(m_Window);
 		glfwSwapInterval(1);
 
@@ -81,11 +92,6 @@ namespace AF
 
 		int result = nvgCreateFont(m_Ctx, "Roboto", "res/Roboto-Medium.ttf");
 		AF_ASSERT(result != -1, "Failed to load font");
-	}
-
-	void Application::EarlyUpdate()
-	{
-		glfwPollEvents();
 	}
 
 	void Application::Update()
