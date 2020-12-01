@@ -7,6 +7,6 @@ namespace AF
 	void CreateLogger()
 	{
 		s_Logger = spdlog::stdout_color_mt("Wave");
-		s_Logger->set_level(spdlog::level::debug);
+		s_Logger->set_level(spdlog::level::trace);
 	}
 }
