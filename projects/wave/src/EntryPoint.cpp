@@ -1,9 +1,5 @@
-#include "windows.h"
-#include "psapi.h"
-
 #include <GLFW/glfw3.h>
 #include <glad/glad.h>
-
 
 #include <glm/glm.hpp>
 #include <glm/gtc/random.hpp>
@@ -125,7 +121,6 @@ void Entity::Update()
 	nvgFill(app->m_Ctx);
 }
 
-
 class Trail : public Entity
 {
 public:
@@ -154,7 +149,6 @@ public:
 	float m_MaxLifetime;
 	float m_CurrentLifetime;
 };
-
 
 class MenuParticle : public Entity
 {
