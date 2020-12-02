@@ -1,3 +1,6 @@
+#include "windows.h"
+#include "psapi.h"
+
 #include <GLFW/glfw3.h>
 #include <glad/glad.h>
 
@@ -11,13 +14,19 @@
 #include "Application.h"
 
 #if defined(AF_CONF_DEBUG)
-	#define AF_CONF_STR "DEBUG"
+	#define AF_CONF_STR "DEB"
 #elif defined(AF_CONF_RELEASE)
-	#define AF_CONF_STR "RELEASE"
+	#define AF_CONF_STR "REL"
 #elif defined(AF_CONF_DIST)
 	#define AF_CONF_STR "DIST"
 #else
 	#error "Invalid configuration"
+#endif
+
+#if defined(AF_PLAT_WINDOWS)
+	#define AF_PLAT_STR "WIN"
+#else
+	#error "Invalid platform"
 #endif
 
 #define AF_MAIN() int main(int, char**)
@@ -252,7 +261,7 @@ public:
 		const GLubyte* version = glGetString(GL_VERSION);
 		const GLubyte* glslVersion = glGetString(GL_SHADING_LANGUAGE_VERSION);
 
-		std::string string = fmt::format("{} {} {}\n--- Renderer Details ---\nVendor: {}\nRenderer: {}\nVersion: {}\nGLSL Version: {}\n--- Engine Details ---\nEntities: {} / {}\nDeltaTime: {}\nFramerate: {}", AF_CONF_STR, __DATE__, __TIME__, vendor, renderer, version, glslVersion, m_EntityManager.GetSize(), m_EntityManager.GetCapacity(), app->m_DeltaTime, static_cast<int>((1.0f / app->m_DeltaTime)));
+		std::string string = fmt::format("{} {} {} {}\n--- Renderer Details ---\nVendor: {}\nRenderer: {}\nVersion: {}\nGLSL Version: {}\n--- Engine Details ---\nEntities: {} / {}\nDeltaTime: {}\nFramerate: {}", AF_PLAT_STR, AF_CONF_STR, __DATE__, __TIME__, vendor, renderer, version, glslVersion, m_EntityManager.GetSize(), m_EntityManager.GetCapacity(), app->m_DeltaTime, static_cast<int>((1.0f / app->m_DeltaTime)));
 
 		constexpr float margin = 8.0f;
 
