@@ -53,6 +53,15 @@ namespace AF
 		AF_INFO("Stopped application");
 	}
 
+	void Application::InvokeLater(const std::function<void()>& function)
+	{
+		m_FutureMutex.lock();
+
+		m_Futures.push_back(function);
+
+		m_FutureMutex.unlock();
+	}
+
 	void Application::Stop()
 	{
 		AF_INFO("Stopping application");
@@ -80,7 +89,7 @@ namespace AF
 		glfwSetWindowUserPointer(m_Window, this);
 
 		AF_TRACE("Enforcing aspect ratio");
-		glfwSetWindowAspectRatio(m_Window, m_Size.x, m_Size.y);
+		glfwSetWindowAspectRatio(m_Window, static_cast<int>(m_Size.x), static_cast<int>(m_Size.y));
 
 		AF_TRACE("Setting callbacks");
 
@@ -92,6 +101,28 @@ namespace AF
 		glfwSetFramebufferSizeCallback(m_Window, [](GLFWwindow* window, int width, int height)
 		{
 			static_cast<Application*>(glfwGetWindowUserPointer(window))->Resize({ width, height });
+		});
+		
+		glfwSetKeyCallback(m_Window, [](GLFWwindow* window, int key, int scancode, int action, int mods)
+		{
+			auto* app = static_cast<Application*>(glfwGetWindowUserPointer(window));
+
+			switch (action)
+			{
+				case GLFW_PRESS:
+					app->InvokeLater([key, app]()
+					{
+						app->m_Keys.insert(key);
+						app->m_PressedKeys.insert(key);
+					});
+					break;
+				case GLFW_RELEASE:
+					app->InvokeLater([key, app]()
+					{
+						app->m_Keys.erase(key);
+					});
+					break;
+			}
 		});
 	}
 
@@ -125,6 +156,26 @@ namespace AF
 		m_StateManager.Update();
 
 		glfwSwapBuffers(m_Window);
+
+		m_PressedKeys.clear();
+
+		
+
+		while (true)
+		{
+			m_FutureMutex.lock();
+			size_t size = m_Futures.size();
+			m_FutureMutex.unlock();
+
+			if (size == 0) break;
+
+			m_FutureMutex.lock();
+			auto future = m_Futures[m_Futures.size() - 1];
+			m_Futures.pop_back();
+			m_FutureMutex.unlock();
+
+			future();
+		}
 	}
 
 	void Application::Destroy()

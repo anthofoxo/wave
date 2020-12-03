@@ -41,6 +41,14 @@ public:
 
 	virtual ~Entity() = default;
 
+	virtual void Init()
+	{
+	}
+
+	virtual void Destroy()
+	{
+	}
+
 	virtual void Behaviour()
 	{
 	}
@@ -66,12 +74,14 @@ struct EntityManager
 	void AddEntity(std::shared_ptr<Entity> entity)
 	{
 		entity->m_Manager = this;
+		entity->Init();
 		m_Entities.push_back(entity);
 	}
 
 	void RemoveEntity(std::shared_ptr<Entity> entity)
 	{
 		entity->m_Manager = nullptr;
+		entity->Destroy();
 		m_Entities.erase(std::remove(m_Entities.begin(), m_Entities.end(), entity));
 	}
 
@@ -151,13 +161,15 @@ public:
 class MenuParticle : public Entity
 {
 public:
-	MenuParticle()
+	virtual void Init() override
 	{
 		int direction = glm::linearRand<int>(0, 3);
 		float speed = glm::linearRand<float>(300.0f, 600.0f);
 
-		m_Position.x = glm::linearRand<float>(-m_Size.x, 1280.0f);
-		m_Position.y = glm::linearRand<float>(-m_Size.y, 720.0f);
+		auto* app = m_Manager->m_State->GetStateManager()->GetApplication();
+
+		m_Position.x = glm::linearRand<float>(-m_Size.x, app->m_ReferenceSize.x);
+		m_Position.y = glm::linearRand<float>(-m_Size.y, app->m_ReferenceSize.y);
 
 		switch (direction)
 		{
@@ -167,7 +179,7 @@ public:
 				break;
 			case 1:
 				m_Velocity = { 0, -1 };
-				m_Position.y = 720.0f;
+				m_Position.y = app->m_ReferenceSize.y;
 				break;
 			case 2:
 				m_Velocity = { 1, 0 };
@@ -175,7 +187,7 @@ public:
 				break;
 			case 3:
 				m_Velocity = { -1, 0 };
-				m_Position.x = 1280.0f;
+				m_Position.x = app->m_ReferenceSize.x;
 				break;
 		}
 
@@ -186,21 +198,25 @@ public:
 
 	virtual void Behaviour() override
 	{
+		auto* app = m_Manager->m_State->GetStateManager()->GetApplication();
+
 		m_Color.r = glm::linearRand<float>(0.0f, 1.0f);
 		m_Color.g = glm::linearRand<float>(0.0f, 1.0f);
 		m_Color.b = glm::linearRand<float>(0.0f, 1.0f);
 
-		if (m_Position.x > 1280.0f + m_Size.x * 2.0f) m_KillMe = true;
-		if (m_Position.y > 720.0f + m_Size.y * 2.0f) m_KillMe = true;
+		if (m_Position.x > app->m_ReferenceSize.x + m_Size.x * 2.0f) m_KillMe = true;
+		if (m_Position.y > app->m_ReferenceSize.y + m_Size.y * 2.0f) m_KillMe = true;
 
 		if (m_Position.x < -m_Size.x * 2.0f) m_KillMe = true;
 		if (m_Position.y < -m_Size.y * 2.0f) m_KillMe = true;
 
 		m_Timer += static_cast<float>(m_Manager->m_State->GetStateManager()->GetApplication()->m_DeltaTime);
 
-		if (m_Timer > 0.05f)
+		float timerLength = 0.05f;
+
+		if (m_Timer > timerLength)
 		{
-			m_Timer -= 0.05f;
+			m_Timer -= timerLength;
 
 			auto trail = std::make_shared<Trail>(0.3f, m_Position, m_Color);
 			m_Manager->AddEntity(trail);
@@ -211,14 +227,75 @@ public:
 	float m_Timer = 0.0f;
 };
 
+class GameState : public AF::State
+{
+	GameState() = default;
+
+	virtual ~GameState() = default;
+
+	virtual void Update() override
+	{
+
+	}
+
+	virtual void Attach() override
+	{
+
+	}
+
+	virtual void Detach() override
+	{
+
+	}
+};
+
 class MenuState : public AF::State
 {
 public:
+	struct Button
+	{
+		const char* name;
+		std::function<void()> onClick;
+	};
+
+	int selectedOption = 1;
+	
 	virtual void Update()
 	{
 		auto* app = GetStateManager()->GetApplication();
 
-		std::array<const char*, 2> texts = { app->m_Title, "Quit" };
+		std::array<Button, 3> texts =
+		{
+			Button
+			{
+				app->m_Title,
+				[this]()
+				{
+				}
+			},
+			Button
+			{
+				"Play",
+				[this]()
+				{
+					auto* app = this->GetStateManager()->GetApplication();
+
+					app->InvokeLater([this]()
+					{
+						this->GetStateManager()->SetState(std::make_shared<GameState>());
+					});
+				}
+			},
+			Button
+			{
+				"Quit",
+				[this]()
+				{
+					this->GetStateManager()->GetApplication()->Stop();
+				}
+			}
+		};
+
 
 		app->m_Renderer.BeginFrame(app->m_ReferenceSize);
 		m_EntityManager.Update();
@@ -233,34 +310,51 @@ public:
 
 		nvgTextAlign(app->m_Renderer.m_Vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
 
+		if (app->m_PressedKeys.find(GLFW_KEY_W) != app->m_PressedKeys.end()) --selectedOption;
+		if (app->m_PressedKeys.find(GLFW_KEY_S) != app->m_PressedKeys.end()) ++selectedOption;
+
+		if (app->m_PressedKeys.find(GLFW_KEY_SPACE) != app->m_PressedKeys.end())
+		{
+			texts[selectedOption].onClick();
+		}
+
+		selectedOption = glm::clamp<int>(selectedOption, 1, static_cast<int>(texts.size()) - 1);
+
 		for (int i = 0; i < texts.size(); ++i)
 		{
 			float x = mainX;
 			float y = spacing * static_cast<float>(i * 2 + 1);
 
+			float b = 1.0f;
+
+			if (i == selectedOption)
+				b = 0.0f;
+
 			if (i == 0)
 			{
 				app->m_Renderer.FontSize(app->ComputeFromReference(120.0f));
 
-				app->m_Renderer.FillColor({ 1.0f, 1.0f, 1.0f, 0.5f });
-				nvgText(app->m_Renderer.m_Vg, x, y, texts[i], nullptr);
+				app->m_Renderer.FillColor({ 1.0f, 1.0f, b, 0.5f });
+				nvgText(app->m_Renderer.m_Vg, x, y, texts[i].name, nullptr);
 
 				float offsetSize = app->ComputeFromReference(5);
 				x += glm::linearRand<float>(-offsetSize, offsetSize);
 				y += glm::linearRand<float>(-offsetSize, offsetSize);
 
-				app->m_Renderer.FillColor({ 1.0f, 1.0f, 1.0f, 1.0f });
+				
 			}
 			else
 			{
 				app->m_Renderer.FontSize(app->ComputeFromReference(60.0f));
 			}
 
-			nvgText(app->m_Renderer.m_Vg, x, y, texts[i], nullptr);
+			app->m_Renderer.FillColor({ 1.0f, 1.0f, b, 1.0f });
+			nvgText(app->m_Renderer.m_Vg, x, y, texts[i].name, nullptr);
 		}
 		
 		nvgTextAlign(app->m_Renderer.m_Vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
 		nvgFontSize(app->m_Renderer.m_Vg, 12.0f);
+		app->m_Renderer.FillColor({ 1.0f, 1.0f, 1.0f, 1.0f });
 
 		const GLubyte* vendor = glGetString(GL_VENDOR);
 		const GLubyte* renderer = glGetString(GL_RENDERER);
@@ -311,8 +405,11 @@ AF_MAIN()
 
 	AF::Application app;
 
-	app.m_StateManager.SetState(std::make_shared<MenuState>());
-
+	app.InvokeLater([&app]()
+	{
+		app.m_StateManager.SetState(std::make_shared<MenuState>());
+	});
+	
 	app.Start();
 
 	AF_INFO("Stopped");
