@@ -108,11 +108,11 @@ namespace AF
 		AF_ASSERT(gladLoadGLLoader((GLADloadproc) glfwGetProcAddress), "Failed to load opengl");
 
 		AF_TRACE("Loading nanovg");
-		m_Ctx = nvgCreateGL3(NVG_ANTIALIAS | NVG_STENCIL_STROKES);
-		AF_ASSERT(m_Ctx, "Failed to initialize nanovg");
+		m_Renderer.m_Vg = nvgCreateGL3(NVG_ANTIALIAS | NVG_STENCIL_STROKES);
+		AF_ASSERT(m_Renderer.m_Vg, "Failed to initialize nanovg");
 
 		AF_TRACE("Loading nanovg font");
-		int result = nvgCreateFont(m_Ctx, "Roboto", "res/Roboto-Medium.ttf");
+		int result = nvgCreateFont(m_Renderer.m_Vg, "Roboto", "res/Roboto-Medium.ttf");
 		AF_ASSERT(result != -1, "Failed to load font");
 	}
 
@@ -130,8 +130,8 @@ namespace AF
 	void Application::Destroy()
 	{
 		AF_DEBUG("Destroying nanovg");
-		nvgDeleteGL3(m_Ctx);
-		m_Ctx = nullptr;
+		nvgDeleteGL3(m_Renderer.m_Vg);
+		m_Renderer.m_Vg = nullptr;
 
 		AF_DEBUG("Destroying window");
 		glfwDestroyWindow(m_Window);

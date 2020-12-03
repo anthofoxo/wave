@@ -4,6 +4,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/random.hpp>
 #include <memory>
+#include <array>
 #include <vector>
 
 #include "Log.h"
@@ -115,10 +116,7 @@ void Entity::Update()
 	Behaviour();
 	m_Position += m_Velocity * static_cast<float>(app->m_DeltaTime);
 
-	nvgBeginPath(app->m_Ctx);
-	nvgRect(app->m_Ctx, m_Position.x, m_Position.y, m_Size.x, m_Size.y);
-	nvgFillColor(app->m_Ctx, *(NVGcolor*) &m_Color);
-	nvgFill(app->m_Ctx);
+	app->m_Renderer.VGRP_FillRect(m_Position, m_Size, m_Color);
 }
 
 class Trail : public Entity
@@ -208,7 +206,6 @@ public:
 			m_Manager->AddEntity(trail);
 		}
 
-		
 	}
 
 	float m_Timer = 0.0f;
@@ -221,34 +218,49 @@ public:
 	{
 		auto* app = GetStateManager()->GetApplication();
 
-		nvgBeginFrame(app->m_Ctx, app->m_ReferenceSize.x, app->m_ReferenceSize.y, 1);
+		std::array<const char*, 2> texts = { app->m_Title, "Quit" };
 
+		app->m_Renderer.BeginFrame(app->m_ReferenceSize);
 		m_EntityManager.Update();
+		app->m_Renderer.EndFrame();
 
-		nvgEndFrame(app->m_Ctx);
+		app->m_Renderer.BeginFrame(app->m_Size);
 
-		nvgBeginFrame(app->m_Ctx, app->m_Size.x, app->m_Size.y, 1);
+		app->m_Renderer.FontFace("Roboto");
 
-		nvgFontFace(app->m_Ctx, "Roboto");
-		nvgFontSize(app->m_Ctx, app->ComputeFromReference(72.0f));
+		float spacing = app->m_Size.y / (static_cast<float>(texts.size()) * 2.0f);
+		float mainX = app->m_Size.x / 2.0f;
 
-		nvgTextAlign(app->m_Ctx, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
+		nvgTextAlign(app->m_Renderer.m_Vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
 
-		float offsetSize = app->ComputeFromReference(5);
-		float xOffset = glm::linearRand<float>(-offsetSize, offsetSize);
-		float yOffset = glm::linearRand<float>(-offsetSize, offsetSize);
+		for (int i = 0; i < texts.size(); ++i)
+		{
+			float x = mainX;
+			float y = spacing * static_cast<float>(i * 2 + 1);
 
-		float titleX = app->m_Size.x / 2.0f;
-		float titleY = app->m_Size.y / 4.0f;
+			if (i == 0)
+			{
+				app->m_Renderer.FontSize(app->ComputeFromReference(120.0f));
 
-		nvgFillColor(app->m_Ctx, { 1.0f, 1.0f, 1.0f, 0.5f });
-		nvgText(app->m_Ctx, titleX, titleY, app->m_Title, nullptr);
+				app->m_Renderer.FillColor({ 1.0f, 1.0f, 1.0f, 0.5f });
+				nvgText(app->m_Renderer.m_Vg, x, y, texts[i], nullptr);
 
-		nvgFillColor(app->m_Ctx, { 1.0f, 1.0f, 1.0f, 1.0f });
-		nvgText(app->m_Ctx, titleX + xOffset, titleY + yOffset, app->m_Title, nullptr);
+				float offsetSize = app->ComputeFromReference(5);
+				x += glm::linearRand<float>(-offsetSize, offsetSize);
+				y += glm::linearRand<float>(-offsetSize, offsetSize);
 
-		nvgTextAlign(app->m_Ctx, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
-		nvgFontSize(app->m_Ctx, 12.0f);
+				app->m_Renderer.FillColor({ 1.0f, 1.0f, 1.0f, 1.0f });
+			}
+			else
+			{
+				app->m_Renderer.FontSize(app->ComputeFromReference(60.0f));
+			}
+
+			nvgText(app->m_Renderer.m_Vg, x, y, texts[i], nullptr);
+		}
+		
+		nvgTextAlign(app->m_Renderer.m_Vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
+		nvgFontSize(app->m_Renderer.m_Vg, 12.0f);
 
 		const GLubyte* vendor = glGetString(GL_VENDOR);
 		const GLubyte* renderer = glGetString(GL_RENDERER);
@@ -259,9 +271,9 @@ public:
 
 		constexpr float margin = 8.0f;
 
-		nvgTextBox(app->m_Ctx, margin, margin, app->m_Size.x - margin * 2.0f, string.c_str(), nullptr);
+		nvgTextBox(app->m_Renderer.m_Vg, margin, margin, app->m_Size.x - margin * 2.0f, string.c_str(), nullptr);
 
-		nvgEndFrame(app->m_Ctx);
+		app->m_Renderer.EndFrame();
 
 		m_Timer += app->m_DeltaTime;
 

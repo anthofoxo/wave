@@ -6,6 +6,7 @@
 #include <nanovg.h>
 
 #include "State.h"
+#include "Renderer.h"
 
 namespace AF
 {
@@ -29,7 +30,7 @@ namespace AF
 		glm::vec2 m_ReferenceSize = { 1280, 720 };
 		const char* m_Title = "Wave";
 		double m_DeltaTime = 0.0f;
-		NVGcontext* m_Ctx = nullptr;
+		Renderer m_Renderer;
 		GLFWwindow* m_Window = nullptr;
 
 		StateManager m_StateManager{this};
