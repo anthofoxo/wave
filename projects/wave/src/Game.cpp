@@ -12,6 +12,8 @@
 #include "Application.h"
 #include "Timer.h"
 
+#include <entt/entity/registry.hpp>
+
 struct EntityManager;
 
 class Entity

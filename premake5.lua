@@ -18,6 +18,7 @@ includes["glfw"] = "projects/glfw/include/"
 includes["glm"] = "projects/glm/"
 includes["spdlog"] = "projects/spdlog/include/"
 includes["nanovg"] = "projects/nanovg/src/"
+includes["entt"] = "projects/entt/src/"
 
 group "deps"
 
@@ -238,7 +239,8 @@ project "wave"
 		includes["glfw"],
 		includes["glm"],
 		includes["spdlog"],
-		includes["nanovg"]
+		includes["nanovg"],
+		includes["entt"]
 	}
 	
 	defines
