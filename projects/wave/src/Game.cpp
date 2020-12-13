@@ -121,12 +121,12 @@ public:
 
 	virtual void Behaviour() override
 	{
-		m_KillMe = m_Timer.Update(AF::GetApplication()->m_DeltaTime);
+		m_KillMe = m_Timer.Update(static_cast<float>(AF::GetApplication()->m_DeltaTime));
 
-		m_Color.a = 1.0f - static_cast<float>(m_Timer.PercentComplete());
+		m_Color.a = 1.0f - m_Timer.PercentComplete();
 	}
 
-	AF::Timer m_Timer;
+	AF::Timer<float> m_Timer;
 };
 
 class MenuParticle : public Entity
@@ -181,14 +181,14 @@ public:
 		if (m_Position.x < -m_Size.x * 2.0f) m_KillMe = true;
 		if (m_Position.y < -m_Size.y * 2.0f) m_KillMe = true;
 
-		if (m_Timer.Update(app->m_DeltaTime))
+		if (m_Timer.Update(static_cast<float>(app->m_DeltaTime)))
 		{
 			auto trail = std::make_shared<Trail>(0.3f, m_Position, m_Color);
 			m_Manager->AddEntity(trail);
 		}
 	}
 
-	AF::Timer m_Timer = AF::Timer(0.05);
+	AF::Timer<float> m_Timer = AF::Timer<float>(0.05f);
 };
 
 class BasicEnemy : public Entity
@@ -243,14 +243,14 @@ public:
 			m_Velocity.y *= -1.0f;
 		}
 
-		if (m_Timer.Update(app->m_DeltaTime))
+		if (m_Timer.Update(static_cast<float>(app->m_DeltaTime)))
 		{
 			auto trail = std::make_shared<Trail>(0.3f, m_Position, m_Color);
 			m_Manager->AddEntity(trail);
 		}
 	}
 
-	AF::Timer m_Timer = AF::Timer(0.02);
+	AF::Timer<float> m_Timer = AF::Timer<float>(0.02f);
 };
 
 class GameState : public AF::State
@@ -266,7 +266,7 @@ public:
 	{
 		auto* app = AF::GetApplication();
 
-		if (m_Timer.Update(app->m_DeltaTime))
+		if (m_Timer.Update(static_cast<float>(app->m_DeltaTime)))
 			m_EntityManager.AddEntity(std::make_shared<BasicEnemy>());
 
 		app->m_Renderer.BeginFrame(app->m_ReferenceSize);
@@ -286,7 +286,7 @@ public:
 	{
 	}
 
-	AF::Timer m_Timer = AF::Timer(5.0);
+	AF::Timer<float> m_Timer = AF::Timer<float>(5.0f);
 };
 
 class MenuState : public AF::State
@@ -387,7 +387,7 @@ public:
 
 		app->m_Renderer.EndFrame();
 
-		if (m_Timer.Update(app->m_DeltaTime))
+		if (m_Timer.Update(static_cast<float>(app->m_DeltaTime)))
 		{
 			auto entity = std::make_shared<MenuParticle>();
 			m_EntityManager.AddEntity(entity);
@@ -404,7 +404,7 @@ public:
 
 	EntityManager m_EntityManager = EntityManager(this);
 
-	AF::Timer m_Timer = AF::Timer(0.12);
+	AF::Timer<float> m_Timer = AF::Timer<float>(0.12f);
 };
 
 namespace AF
