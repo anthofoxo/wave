@@ -10,6 +10,7 @@
 #include "Debugger.h"
 #include "Log.h"
 #include "Application.h"
+#include "Timer.h"
 
 struct EntityManager;
 
@@ -78,9 +79,7 @@ struct EntityManager
 		}
 
 		for (auto& entity : theOnesThatWantKilled)
-		{
 			m_Entities.erase(std::remove(m_Entities.begin(), m_Entities.end(), entity));
-		}
 	}
 
 	size_t GetSize()
@@ -112,7 +111,7 @@ class Trail : public Entity
 {
 public:
 	Trail(float lifetime, glm::vec2 position, glm::vec4 color)
-		: m_MaxLifetime(lifetime), m_CurrentLifetime(lifetime)
+		: m_Timer(lifetime, true)
 	{
 		m_Position = position;
 		m_Color = color;
@@ -122,19 +121,12 @@ public:
 
 	virtual void Behaviour() override
 	{
-		m_CurrentLifetime -= static_cast<float>(m_Manager->m_State->GetStateManager()->GetApplication()->m_DeltaTime);
+		m_KillMe = m_Timer.Update(m_Manager->m_State->GetStateManager()->GetApplication()->m_DeltaTime);
 
-		if (m_CurrentLifetime <= 0)
-		{
-			m_KillMe = true;
-			m_CurrentLifetime = 0.0f;
-		}
-
-		m_Color.a = m_CurrentLifetime / m_MaxLifetime;
+		m_Color.a = 1.0f - static_cast<float>(m_Timer.PercentComplete());
 	}
 
-	float m_MaxLifetime;
-	float m_CurrentLifetime;
+	AF::Timer m_Timer;
 };
 
 class MenuParticle : public Entity
@@ -189,21 +181,14 @@ public:
 		if (m_Position.x < -m_Size.x * 2.0f) m_KillMe = true;
 		if (m_Position.y < -m_Size.y * 2.0f) m_KillMe = true;
 
-		m_Timer += static_cast<float>(m_Manager->m_State->GetStateManager()->GetApplication()->m_DeltaTime);
-
-		float timerLength = 0.05f;
-
-		if (m_Timer > timerLength)
+		if (m_Timer.Update(m_Manager->m_State->GetStateManager()->GetApplication()->m_DeltaTime))
 		{
-			m_Timer -= timerLength;
-
 			auto trail = std::make_shared<Trail>(0.3f, m_Position, m_Color);
 			m_Manager->AddEntity(trail);
 		}
-
 	}
 
-	float m_Timer = 0.0f;
+	AF::Timer m_Timer = AF::Timer(0.05);
 };
 
 class BasicEnemy : public Entity
@@ -258,21 +243,14 @@ public:
 			m_Velocity.y *= -1.0f;
 		}
 
-		m_Timer += static_cast<float>(m_Manager->m_State->GetStateManager()->GetApplication()->m_DeltaTime);
-
-		float timerLength = 0.02f;
-
-		if (m_Timer > timerLength)
+		if (m_Timer.Update(m_Manager->m_State->GetStateManager()->GetApplication()->m_DeltaTime))
 		{
-			m_Timer -= timerLength;
-
 			auto trail = std::make_shared<Trail>(0.3f, m_Position, m_Color);
 			m_Manager->AddEntity(trail);
 		}
-
 	}
 
-	float m_Timer = 0.0f;
+	AF::Timer m_Timer = AF::Timer(0.02);
 };
 
 class GameState : public AF::State
@@ -284,34 +262,31 @@ public:
 
 	virtual ~GameState() = default;
 
-	float timer = 0.0f;
-
 	virtual void Update() override
 	{
 		auto* app = GetStateManager()->GetApplication();
 
-		timer += static_cast<float>(app->m_DeltaTime);
-
-		if (timer > 5.0f)
-		{
-			timer -= 5.0f;
+		if (m_Timer.Update(app->m_DeltaTime))
 			m_EntityManager.AddEntity(std::make_shared<BasicEnemy>());
-		}
 
 		app->m_Renderer.BeginFrame(app->m_ReferenceSize);
 		m_EntityManager.Update();
+		app->m_Renderer.EndFrame();
+
+		app->m_Renderer.BeginFrame(app->m_Size);
+		AF::Debugger::Update();
 		app->m_Renderer.EndFrame();
 	}
 
 	virtual void Attach() override
 	{
-
 	}
 
 	virtual void Detach() override
 	{
-
 	}
+
+	AF::Timer m_Timer = AF::Timer(5.0);
 };
 
 class MenuState : public AF::State
@@ -320,7 +295,7 @@ public:
 	struct Button
 	{
 		const char* name;
-		std::function<void()> onClick;
+		void(*onClick)();
 	};
 
 	int selectedOption = 1;
@@ -339,26 +314,23 @@ public:
 			Button
 			{
 				"Play",
-				[this]()
+				[]()
 				{
-					auto* app = this->GetStateManager()->GetApplication();
-
-					app->InvokeLater([this]()
+					AF::GetApplication()->InvokeLater([]()
 					{
-						this->GetStateManager()->SetState(std::make_shared<GameState>());
+						AF::GetApplication()->m_StateManager.SetState(std::make_shared<GameState>());
 					});
 				}
 			},
 			Button
 			{
 				"Quit",
-				[this]()
+				[]()
 				{
-					this->GetStateManager()->GetApplication()->Stop();
+					AF::GetApplication()->Stop();
 				}
 			}
 		};
-
 
 		app->m_Renderer.BeginFrame(app->m_ReferenceSize);
 		m_EntityManager.Update();
@@ -403,13 +375,9 @@ public:
 				float offsetSize = app->ComputeFromReference(5);
 				x += glm::linearRand<float>(-offsetSize, offsetSize);
 				y += glm::linearRand<float>(-offsetSize, offsetSize);
-
-				
 			}
 			else
-			{
 				app->m_Renderer.FontSize(app->ComputeFromReference(60.0f));
-			}
 
 			app->m_Renderer.FillColor({ 1.0f, 1.0f, b, 1.0f });
 			nvgText(app->m_Renderer.m_Vg, x, y, texts[i].name, nullptr);
