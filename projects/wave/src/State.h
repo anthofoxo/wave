@@ -2,12 +2,6 @@
 
 #include <memory>
 
-// Application.h
-namespace AF
-{
-	class Application;
-}
-
 namespace AF
 {
 	class StateManager;
@@ -29,16 +23,11 @@ namespace AF
 	class StateManager final
 	{
 	public:
-		StateManager(Application* application);
-
-		Application* GetApplication();
-
 		std::shared_ptr<State> GetState();
 		void SetState(std::shared_ptr<State> state);
 
 		void Update();
 	private:
 		std::shared_ptr<State> m_State = nullptr;
-		Application* m_Application = nullptr;
 	};
 }

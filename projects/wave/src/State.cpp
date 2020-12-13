@@ -7,16 +7,6 @@ namespace AF
 		return m_StateManager;
 	}
 
-	StateManager::StateManager(Application* application)
-		: m_Application(application)
-	{
-	}
-
-	Application* StateManager::GetApplication()
-	{
-		return m_Application;
-	}
-
 	std::shared_ptr<State> StateManager::GetState()
 	{
 		return m_State;
@@ -41,7 +31,6 @@ namespace AF
 
 	void StateManager::Update()
 	{
-		if (m_State)
-			m_State->Update();
+		if (m_State) m_State->Update();
 	}
 }

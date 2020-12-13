@@ -16,7 +16,7 @@ namespace AF
 	namespace Debugger
 	{
 		std::vector<DebuggerSection> s_Sections;
-		bool s_Enabled = false;
+		bool s_Enabled = true;
 
 		void Update()
 		{

@@ -1,11 +1,11 @@
-#include <GLFW/glfw3.h>
-#include <glad/glad.h>
-
-#include <glm/glm.hpp>
-#include <glm/gtc/random.hpp>
 #include <memory>
 #include <array>
 #include <vector>
+
+#include <GLFW/glfw3.h>
+#include <glad/glad.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/random.hpp>
 
 #include "Debugger.h"
 #include "Log.h"
@@ -99,7 +99,7 @@ struct EntityManager
 
 void Entity::Update()
 {
-	auto* app = m_Manager->m_State->GetStateManager()->GetApplication();
+	auto* app = AF::GetApplication();
 
 	Behaviour();
 	m_Position += m_Velocity * static_cast<float>(app->m_DeltaTime);
@@ -121,7 +121,7 @@ public:
 
 	virtual void Behaviour() override
 	{
-		m_KillMe = m_Timer.Update(m_Manager->m_State->GetStateManager()->GetApplication()->m_DeltaTime);
+		m_KillMe = m_Timer.Update(AF::GetApplication()->m_DeltaTime);
 
 		m_Color.a = 1.0f - static_cast<float>(m_Timer.PercentComplete());
 	}
@@ -137,7 +137,7 @@ public:
 		int direction = glm::linearRand<int>(0, 3);
 		float speed = glm::linearRand<float>(300.0f, 600.0f);
 
-		auto* app = m_Manager->m_State->GetStateManager()->GetApplication();
+		auto* app = AF::GetApplication();
 
 		m_Position.x = glm::linearRand<float>(-m_Size.x, app->m_ReferenceSize.x);
 		m_Position.y = glm::linearRand<float>(-m_Size.y, app->m_ReferenceSize.y);
@@ -169,7 +169,7 @@ public:
 
 	virtual void Behaviour() override
 	{
-		auto* app = m_Manager->m_State->GetStateManager()->GetApplication();
+		auto* app = AF::GetApplication();
 
 		m_Color.r = glm::linearRand<float>(0.0f, 1.0f);
 		m_Color.g = glm::linearRand<float>(0.0f, 1.0f);
@@ -181,7 +181,7 @@ public:
 		if (m_Position.x < -m_Size.x * 2.0f) m_KillMe = true;
 		if (m_Position.y < -m_Size.y * 2.0f) m_KillMe = true;
 
-		if (m_Timer.Update(m_Manager->m_State->GetStateManager()->GetApplication()->m_DeltaTime))
+		if (m_Timer.Update(app->m_DeltaTime))
 		{
 			auto trail = std::make_shared<Trail>(0.3f, m_Position, m_Color);
 			m_Manager->AddEntity(trail);
@@ -196,7 +196,7 @@ class BasicEnemy : public Entity
 public:
 	virtual void Init() override
 	{
-		auto* app = m_Manager->m_State->GetStateManager()->GetApplication();
+		auto* app = AF::GetApplication();
 
 		m_Color = { 1.0f, 0.0f, 0.0f, 1.0f };
 
@@ -217,7 +217,7 @@ public:
 
 	virtual void Behaviour() override
 	{
-		auto* app = m_Manager->m_State->GetStateManager()->GetApplication();
+		auto* app = AF::GetApplication();
 
 		if (m_Position.x + m_Size.x > app->m_ReferenceSize.x)
 		{
@@ -243,7 +243,7 @@ public:
 			m_Velocity.y *= -1.0f;
 		}
 
-		if (m_Timer.Update(m_Manager->m_State->GetStateManager()->GetApplication()->m_DeltaTime))
+		if (m_Timer.Update(app->m_DeltaTime))
 		{
 			auto trail = std::make_shared<Trail>(0.3f, m_Position, m_Color);
 			m_Manager->AddEntity(trail);
@@ -264,7 +264,7 @@ public:
 
 	virtual void Update() override
 	{
-		auto* app = GetStateManager()->GetApplication();
+		auto* app = AF::GetApplication();
 
 		if (m_Timer.Update(app->m_DeltaTime))
 			m_EntityManager.AddEntity(std::make_shared<BasicEnemy>());
@@ -302,7 +302,7 @@ public:
 	
 	virtual void Update()
 	{
-		auto* app = GetStateManager()->GetApplication();
+		auto* app = AF::GetApplication();
 
 		std::array<Button, 3> texts =
 		{
@@ -383,37 +383,28 @@ public:
 			nvgText(app->m_Renderer.m_Vg, x, y, texts[i].name, nullptr);
 		}
 		
-		AF::Debugger::s_Enabled = true;
 		AF::Debugger::Update();
 
 		app->m_Renderer.EndFrame();
 
-		m_Timer += app->m_DeltaTime;
-
-		constexpr float timerFreq = 0.12f;
-
-		while (m_Timer > timerFreq)
+		if (m_Timer.Update(app->m_DeltaTime))
 		{
-			m_Timer -= timerFreq;
-
 			auto entity = std::make_shared<MenuParticle>();
 			m_EntityManager.AddEntity(entity);
 		}
 	}
 
 	virtual void Attach()
-	{
-		
+	{	
 	}
 
 	virtual void Detach()
 	{
-
 	}
 
 	EntityManager m_EntityManager = EntityManager(this);
 
-	double m_Timer = 0.0;
+	AF::Timer m_Timer = AF::Timer(0.12);
 };
 
 namespace AF

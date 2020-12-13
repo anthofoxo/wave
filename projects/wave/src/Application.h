@@ -46,7 +46,7 @@ namespace AF
 		Renderer m_Renderer;
 		GLFWwindow* m_Window = nullptr;
 
-		StateManager m_StateManager{this};
+		StateManager m_StateManager;
 	};
 
 	// User defined
