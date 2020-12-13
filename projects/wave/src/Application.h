@@ -48,4 +48,10 @@ namespace AF
 
 		StateManager m_StateManager{this};
 	};
+
+	// User defined
+	Application* CreateApplication();
+
+	// Defined in EntryPoint.cpp
+	Application* GetApplication();
 }

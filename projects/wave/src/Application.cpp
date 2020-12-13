@@ -10,6 +10,7 @@
 #include <glm/gtc/random.hpp>
 
 #include "Log.h"
+#include "Debugger.h"
 
 namespace AF
 {
@@ -145,6 +146,34 @@ namespace AF
 		AF_TRACE("Loading nanovg font");
 		int result = nvgCreateFont(m_Renderer.m_Vg, "Roboto", "res/Roboto-Medium.ttf");
 		AF_ASSERT(result != -1, "Failed to load font");
+
+		AF_TRACE("Attaching ingame debugger");
+
+		struct DebugGeneralInfo : public AF::DebuggerSection
+		{
+			DebugGeneralInfo()
+			{
+				m_Title = "General Information";
+
+				const char* vendor = (const char*) glGetString(GL_VENDOR);
+				const char* renderer = (const char*) glGetString(GL_RENDERER);
+				const char* version = (const char*) glGetString(GL_VERSION);
+				const char* glslVersion = (const char*) glGetString(GL_SHADING_LANGUAGE_VERSION);
+
+				std::string string = fmt::format("{} {} {} {}", AF_PLAT_STR, AF_CONF_STR, __DATE__, __TIME__);
+				m_Content.push_back(std::make_pair("Game Version", std::move(string)));
+
+				m_Content.push_back(std::make_pair("GPU Vendor", vendor));
+				m_Content.push_back(std::make_pair("GPU Renderer", renderer));
+				m_Content.push_back(std::make_pair("GPU Version", version));
+				m_Content.push_back(std::make_pair("GPU GLSL Version", glslVersion));
+			}
+
+			virtual ~DebugGeneralInfo() = default;
+		}
+		generalDebugger;
+
+		AF::Debugger::s_Sections.push_back(generalDebugger);
 	}
 
 	void Application::Update()
@@ -158,8 +187,6 @@ namespace AF
 		glfwSwapBuffers(m_Window);
 
 		m_PressedKeys.clear();
-
-		
 
 		while (true)
 		{

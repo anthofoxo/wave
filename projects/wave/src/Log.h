@@ -12,6 +12,22 @@
 #define AF_CRITICAL(...) ::AF::s_Logger->critical(__VA_ARGS__)
 #define AF_ASSERT(statement, ...) if(!(statement)) { AF_CRITICAL(__VA_ARGS__); __debugbreak(); }
 
+#if defined(AF_CONF_DEBUG)
+#	define AF_CONF_STR "DEB"
+#elif defined(AF_CONF_RELEASE)
+#	define AF_CONF_STR "REL"
+#elif defined(AF_CONF_DIST)
+#	define AF_CONF_STR "DIST"
+#else
+#	error "Invalid configuration"
+#endif
+
+#if defined(AF_PLAT_WINDOWS)
+#	define AF_PLAT_STR "WIN"
+#else
+#	error "Invalid platform"
+#endif
+
 namespace AF
 {
 	extern std::shared_ptr<spdlog::logger> s_Logger;
