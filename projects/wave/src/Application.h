@@ -1,13 +1,13 @@
 #pragma once
 
-#include <GLFW/glfw3.h>
-#include <glm/glm.hpp>
-
-#include <nanovg.h>
 #include <vector>
 #include <functional>
 #include <unordered_set>
 #include <mutex>
+
+#include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
+#include <nanovg.h>
 
 #include "State.h"
 #include "Renderer.h"
