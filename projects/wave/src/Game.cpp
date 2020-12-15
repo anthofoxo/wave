@@ -11,6 +11,13 @@
 #include "Log.h"
 #include "Application.h"
 #include "Timer.h"
+#include "ecs.h"
+
+struct Transform : public ECS::Component
+{
+	ECS_DECLARE();
+};
+ECS_DEFINE(Transform);
 
 struct EntityManager;
 
@@ -411,6 +418,8 @@ namespace AF
 {
 	Application* CreateApplication()
 	{
+		ECS_LOAD(Transform);
+
 		Application* app = new AF::Application();
 
 		app->InvokeLater([app]()
