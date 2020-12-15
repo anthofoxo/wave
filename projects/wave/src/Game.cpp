@@ -14,6 +14,11 @@
 
 struct EntityManager;
 
+enum EntityTag : uint8_t
+{
+	NONE, PLAYER, ENEMY, TRAIL
+};
+
 class Entity
 {
 public:
@@ -35,11 +40,21 @@ public:
 
 	virtual void Update();
 
+	virtual bool IntersectsWith(std::shared_ptr<Entity> other)
+	{
+		glm::vec4 a = { m_Position, m_Size };
+		glm::vec4 b = { other->m_Position, other->m_Size };
+
+		return (glm::abs((a.x + a.z / 2.0f) - (b.x + b.z / 2.0f)) * 2.0f < (a.z + b.z)) &&
+			(glm::abs((a.y + a.w / 2.0f) - (b.y + b.w / 2.0f)) * 2.0f < (a.w + b.w));
+	}
+
 	glm::vec2 m_Velocity = { 0.0f, 0.0f };
 	glm::vec2 m_Position = { 0.0f, 0.0f };
 	glm::vec2 m_Size = { 32.0f, 32.0f };
 	glm::vec4 m_Color = { 1.0f, 1.0f, 1.0f, 1.0f };
 	bool m_KillMe = false;
+	EntityTag m_Tag = EntityTag::NONE;
 
 	EntityManager* m_Manager = nullptr;
 };
@@ -102,7 +117,6 @@ void Entity::Update()
 	auto* app = AF::GetApplication();
 
 	Behaviour();
-	m_Position += m_Velocity * static_cast<float>(app->m_DeltaTime);
 
 	app->m_Renderer.VGRP_FillRect(m_Position, m_Size, m_Color);
 }
@@ -115,6 +129,7 @@ public:
 	{
 		m_Position = position;
 		m_Color = color;
+		m_Tag = EntityTag::TRAIL;
 	}
 
 	virtual ~Trail() = default;
@@ -175,6 +190,8 @@ public:
 		m_Color.g = glm::linearRand<float>(0.0f, 1.0f);
 		m_Color.b = glm::linearRand<float>(0.0f, 1.0f);
 
+		m_Position += m_Velocity * static_cast<float>(app->m_DeltaTime);
+
 		if (m_Position.x > app->m_ReferenceSize.x + m_Size.x * 2.0f) m_KillMe = true;
 		if (m_Position.y > app->m_ReferenceSize.y + m_Size.y * 2.0f) m_KillMe = true;
 
@@ -196,6 +213,8 @@ class BasicEnemy : public Entity
 public:
 	virtual void Init() override
 	{
+		m_Tag = EntityTag::ENEMY;
+
 		auto* app = AF::GetApplication();
 
 		m_Color = { 1.0f, 0.0f, 0.0f, 1.0f };
@@ -218,6 +237,8 @@ public:
 	virtual void Behaviour() override
 	{
 		auto* app = AF::GetApplication();
+
+		m_Position += m_Velocity * static_cast<float>(app->m_DeltaTime);
 
 		if (m_Position.x + m_Size.x > app->m_ReferenceSize.x)
 		{
@@ -253,6 +274,99 @@ public:
 	AF::Timer<float> m_Timer = AF::Timer<float>(0.02f);
 };
 
+class MenuState : public AF::State
+{
+public:
+	struct Button
+	{
+		const char* name;
+		void(*onClick)();
+	};
+
+	int selectedOption = 1;
+
+	virtual void Update();
+	virtual void Attach();
+	virtual void Detach();
+
+	EntityManager m_EntityManager = EntityManager(this);
+
+	AF::Timer<float> m_Timer = AF::Timer<float>(0.12f);
+};
+
+class Player : public Entity
+{
+public:
+	virtual void Init() override
+	{
+		m_Tag = EntityTag::PLAYER;
+
+		auto* app = AF::GetApplication();
+
+		m_Color = { 1.0f, 1.0f, 1.0f, 1.0f };
+
+		m_Position.x = (app->m_ReferenceSize.x - m_Size.x) / 2.0f;
+		m_Position.y = (app->m_ReferenceSize.y - m_Size.y) / 2.0f;
+	}
+
+	virtual ~Player() = default;
+
+	virtual void Behaviour() override
+	{
+		auto* app = AF::GetApplication();
+
+		m_Velocity = { 0.0f, 0.0f };
+
+		if (app->m_Keys.find(GLFW_KEY_A) != app->m_Keys.end()) --m_Velocity.x;
+		if (app->m_Keys.find(GLFW_KEY_D) != app->m_Keys.end()) ++m_Velocity.x;
+		if (app->m_Keys.find(GLFW_KEY_W) != app->m_Keys.end()) --m_Velocity.y;
+		if (app->m_Keys.find(GLFW_KEY_S) != app->m_Keys.end()) ++m_Velocity.y;
+
+		m_Velocity *= 500.0f;
+
+		m_Position += m_Velocity * static_cast<float>(app->m_DeltaTime);
+
+		m_Position = glm::clamp(m_Position, { 0.0f, 0.0f }, app->m_ReferenceSize - m_Size);
+
+		if (m_Timer.Update(static_cast<float>(app->m_DeltaTime)))
+		{
+			auto trail = std::make_shared<Trail>(0.3f, m_Position, m_Color);
+			m_Manager->AddEntity(trail);
+		}
+
+		for (auto entity : m_Manager->m_Entities)
+		{
+			if (entity->m_Tag != EntityTag::ENEMY) continue;
+
+			if (IntersectsWith(entity))
+			{
+				currentHealth -= 100.0f * app->m_DeltaTime;
+			}
+		}
+
+		if (currentHealth <= 0.0f)
+		{
+			app->InvokeLater([]()
+			{
+				AF::GetApplication()->m_StateManager.SetState(std::make_shared<MenuState>());
+			});
+		}
+
+		currentHealth += app->m_DeltaTime * 5.0f;
+		currentHealth = glm::clamp(currentHealth, 0.0f, maxHealth);
+
+		float width = 200.0f;
+		float healthWidth = currentHealth / maxHealth * width;
+
+		app->m_Renderer.VGRP_FillRect(m_Position + glm::vec2{ 100.0f + healthWidth, 100.0f }, { width - healthWidth, 20.0f }, { 1.0f, 1.0f, 1.0f, 0.5f });
+		app->m_Renderer.VGRP_FillRect(m_Position + glm::vec2{ 100.0f, 100.0f }, { healthWidth, 20.0f }, { 1.0f, 0.0f, 0.0f, 0.75f });
+	}
+
+	AF::Timer<float> m_Timer = AF::Timer<float>(0.02f);
+	float maxHealth = 100.0f;
+	float currentHealth = maxHealth;
+};
+
 class GameState : public AF::State
 {
 public:
@@ -280,6 +394,7 @@ public:
 
 	virtual void Attach() override
 	{
+		m_EntityManager.AddEntity(std::make_shared<Player>());
 	}
 
 	virtual void Detach() override
@@ -289,123 +404,107 @@ public:
 	AF::Timer<float> m_Timer = AF::Timer<float>(5.0f);
 };
 
-class MenuState : public AF::State
+void MenuState::Update()
 {
-public:
-	struct Button
+	auto* app = AF::GetApplication();
+
+	std::array<Button, 3> texts =
 	{
-		const char* name;
-		void(*onClick)();
+		Button
+		{
+			app->m_Title,
+			nullptr
+		},
+		Button
+		{
+			"Play",
+			[]()
+			{
+				AF::GetApplication()->InvokeLater([]()
+				{
+					AF::GetApplication()->m_StateManager.SetState(std::make_shared<GameState>());
+				});
+			}
+		},
+		Button
+		{
+			"Quit",
+			[]()
+			{
+				AF::GetApplication()->Stop();
+			}
+		}
 	};
 
-	int selectedOption = 1;
-	
-	virtual void Update()
+	app->m_Renderer.BeginFrame(app->m_ReferenceSize);
+	m_EntityManager.Update();
+	app->m_Renderer.EndFrame();
+
+	app->m_Renderer.BeginFrame(app->m_Size);
+
+	app->m_Renderer.FontFace("Roboto");
+
+	float spacing = app->m_Size.y / (static_cast<float>(texts.size()) * 2.0f);
+	float mainX = app->m_Size.x / 2.0f;
+
+	nvgTextAlign(app->m_Renderer.m_Vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
+
+	if (app->m_PressedKeys.find(GLFW_KEY_W) != app->m_PressedKeys.end()) --selectedOption;
+	if (app->m_PressedKeys.find(GLFW_KEY_S) != app->m_PressedKeys.end()) ++selectedOption;
+
+	if (app->m_PressedKeys.find(GLFW_KEY_SPACE) != app->m_PressedKeys.end())
 	{
-		auto* app = AF::GetApplication();
+		texts[selectedOption].onClick();
+	}
 
-		std::array<Button, 3> texts =
+	selectedOption = glm::clamp<int>(selectedOption, 1, static_cast<int>(texts.size()) - 1);
+
+	for (int i = 0; i < texts.size(); ++i)
+	{
+		float x = mainX;
+		float y = spacing * static_cast<float>(i * 2 + 1);
+
+		float b = 1.0f;
+
+		if (i == selectedOption)
+			b = 0.0f;
+
+		if (i == 0)
 		{
-			Button
-			{
-				app->m_Title,
-				nullptr
-			},
-			Button
-			{
-				"Play",
-				[]()
-				{
-					AF::GetApplication()->InvokeLater([]()
-					{
-						AF::GetApplication()->m_StateManager.SetState(std::make_shared<GameState>());
-					});
-				}
-			},
-			Button
-			{
-				"Quit",
-				[]()
-				{
-					AF::GetApplication()->Stop();
-				}
-			}
-		};
+			app->m_Renderer.FontSize(app->ComputeFromReference(120.0f));
 
-		app->m_Renderer.BeginFrame(app->m_ReferenceSize);
-		m_EntityManager.Update();
-		app->m_Renderer.EndFrame();
-
-		app->m_Renderer.BeginFrame(app->m_Size);
-
-		app->m_Renderer.FontFace("Roboto");
-
-		float spacing = app->m_Size.y / (static_cast<float>(texts.size()) * 2.0f);
-		float mainX = app->m_Size.x / 2.0f;
-
-		nvgTextAlign(app->m_Renderer.m_Vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
-
-		if (app->m_PressedKeys.find(GLFW_KEY_W) != app->m_PressedKeys.end()) --selectedOption;
-		if (app->m_PressedKeys.find(GLFW_KEY_S) != app->m_PressedKeys.end()) ++selectedOption;
-
-		if (app->m_PressedKeys.find(GLFW_KEY_SPACE) != app->m_PressedKeys.end())
-		{
-			texts[selectedOption].onClick();
-		}
-
-		selectedOption = glm::clamp<int>(selectedOption, 1, static_cast<int>(texts.size()) - 1);
-
-		for (int i = 0; i < texts.size(); ++i)
-		{
-			float x = mainX;
-			float y = spacing * static_cast<float>(i * 2 + 1);
-
-			float b = 1.0f;
-
-			if (i == selectedOption)
-				b = 0.0f;
-
-			if (i == 0)
-			{
-				app->m_Renderer.FontSize(app->ComputeFromReference(120.0f));
-
-				app->m_Renderer.FillColor({ 1.0f, 1.0f, b, 0.5f });
-				nvgText(app->m_Renderer.m_Vg, x, y, texts[i].name, nullptr);
-
-				float offsetSize = app->ComputeFromReference(5);
-				x += glm::linearRand<float>(-offsetSize, offsetSize);
-				y += glm::linearRand<float>(-offsetSize, offsetSize);
-			}
-			else
-				app->m_Renderer.FontSize(app->ComputeFromReference(60.0f));
-
-			app->m_Renderer.FillColor({ 1.0f, 1.0f, b, 1.0f });
+			app->m_Renderer.FillColor({ 1.0f, 1.0f, b, 0.5f });
 			nvgText(app->m_Renderer.m_Vg, x, y, texts[i].name, nullptr);
+
+			float offsetSize = app->ComputeFromReference(5);
+			x += glm::linearRand<float>(-offsetSize, offsetSize);
+			y += glm::linearRand<float>(-offsetSize, offsetSize);
 		}
+		else
+			app->m_Renderer.FontSize(app->ComputeFromReference(60.0f));
+
+		app->m_Renderer.FillColor({ 1.0f, 1.0f, b, 1.0f });
+		nvgText(app->m_Renderer.m_Vg, x, y, texts[i].name, nullptr);
+	}
 		
-		AF::Debugger::Update();
+	AF::Debugger::Update();
 
-		app->m_Renderer.EndFrame();
+	app->m_Renderer.EndFrame();
 
-		if (m_Timer.Update(static_cast<float>(app->m_DeltaTime)))
-		{
-			auto entity = std::make_shared<MenuParticle>();
-			m_EntityManager.AddEntity(entity);
-		}
-	}
-
-	virtual void Attach()
-	{	
-	}
-
-	virtual void Detach()
+	if (m_Timer.Update(static_cast<float>(app->m_DeltaTime)))
 	{
+		auto entity = std::make_shared<MenuParticle>();
+		m_EntityManager.AddEntity(entity);
 	}
+}
 
-	EntityManager m_EntityManager = EntityManager(this);
+void MenuState::Attach()
+{	
+}
 
-	AF::Timer<float> m_Timer = AF::Timer<float>(0.12f);
-};
+void MenuState::Detach()
+{
+}
 
 namespace AF
 {
