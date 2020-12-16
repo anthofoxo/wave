@@ -8,6 +8,10 @@
 #include <nanovg.h>
 #include <nanovg_gl.h>
 #include <glm/gtc/random.hpp>
+#include <portaudio.h>
+
+#define STB_VORBIS_HEADER_ONLY
+#include "vendor/stb_vorbis.c"
 
 #include "Log.h"
 #include "Debugger.h"
@@ -25,6 +29,58 @@ namespace AF
 
 		std::thread thread = std::thread([&]()
 		{
+			PaError err = Pa_Initialize();
+			if (err != paNoError)
+				printf("PortAudio error: %s\n", Pa_GetErrorText(err));
+
+			PaStream* stream;
+			
+		
+
+			short* decoded;
+			int channels, rate, len;
+			len = stb_vorbis_decode_filename("res/music.ogg", &channels, &rate, &decoded);
+
+
+			struct TestData
+			{
+				short* data;
+				size_t position;
+				int max_position;
+			};
+
+			TestData data = { decoded, 0, 44100 * 2 * 5 };
+
+			err = Pa_OpenDefaultStream(&stream, 0, 2, paInt16, 44100, 256, [](
+				const void* input,
+				void* output,
+				unsigned long frameCount,
+				const PaStreamCallbackTimeInfo* timeInfo,
+				PaStreamCallbackFlags statusFlags,
+				void* userData
+				) -> int
+			{
+				short* out = (short*) output;
+				TestData* data = (TestData*) userData;
+
+				for (int i = 0; i < 256; i++)
+				{
+					*out++ = data->data[data->position++];
+					*out++ = data->data[data->position++];
+				}
+
+				if (data->position >= data->max_position) data->position -= data->max_position;
+
+				return 0;
+			}, &data);
+
+			if (err != paNoError)
+				printf("PortAudio error: %s\n", Pa_GetErrorText(err));
+
+			err = Pa_StartStream(stream);
+			if (err != paNoError)
+				printf("PortAudio error: %s\n", Pa_GetErrorText(err));
+
 			Init();
 
 			double lastTime = glfwGetTime();
@@ -40,6 +96,14 @@ namespace AF
 
 				Update();
 			}
+
+			err = Pa_StopStream(stream);
+			if (err != paNoError)
+				printf("PortAudio error: %s\n", Pa_GetErrorText(err));
+
+			err = Pa_Terminate();
+			if (err != paNoError)
+				printf("PortAudio error: %s\n", Pa_GetErrorText(err));
 		});
 
 		while (m_Running)
