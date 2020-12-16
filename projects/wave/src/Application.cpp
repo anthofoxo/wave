@@ -9,6 +9,7 @@
 #include <nanovg_gl.h>
 #include <glm/gtc/random.hpp>
 #include <portaudio.h>
+#include <future>
 
 #define STB_VORBIS_HEADER_ONLY
 #include "vendor/stb_vorbis.c"
@@ -29,29 +30,86 @@ namespace AF
 
 		std::thread thread = std::thread([&]()
 		{
+			struct AudioBuffer
+			{
+				AudioBuffer(size_t channels, size_t frames)
+				{
+					m_Data = new float[channels * frames];
+					m_Channels = channels;
+					m_Frames = frames;
+					m_Size = m_Frames * m_Channels;
+					m_LoadedSize = 0;
+					m_Position = 0;
+				}
+				~AudioBuffer()
+				{
+					delete[] m_Data;
+					m_Data = nullptr;
+				}
+
+				float* m_Data;
+				size_t m_Frames;
+				size_t m_Channels;
+				size_t m_Size;
+				size_t m_LoadedSize;
+				size_t m_Position;
+
+				void LoadFromVorbis(stb_vorbis* stream)
+				{
+					m_LoadedSize = stb_vorbis_get_samples_float_interleaved(stream, m_Channels, m_Data, m_Size) * m_Channels;
+					m_Position = 0;
+				}
+
+				bool IsComplete()
+				{
+					return m_Position >= m_LoadedSize;
+				}
+
+				float NextSample()
+				{
+					if (IsComplete())
+					{
+						return 0;
+					}
+
+					return m_Data[m_Position++];
+				}
+			};
+
 			PaError err = Pa_Initialize();
 			if (err != paNoError)
 				printf("PortAudio error: %s\n", Pa_GetErrorText(err));
 
-			PaStream* stream;
-			
-		
+			stb_vorbis* vorbisStream;
+			{
+				int error = 0;
+				vorbisStream = stb_vorbis_open_filename("res/music.ogg", &error, nullptr);
 
-			short* decoded;
-			int channels, rate, len;
-			len = stb_vorbis_decode_filename("res/music.ogg", &channels, &rate, &decoded);
+				if (error != VORBIS__no_error)
+					__debugbreak();
+			}
 
+			int sampleRate;
+			int channels;
+			{
+				stb_vorbis_info info = stb_vorbis_get_info(vorbisStream);
+				sampleRate = info.sample_rate;
+				channels = info.channels;
+			}
+
+			AudioBuffer buffer1 = AudioBuffer(channels, sampleRate);
+			buffer1.LoadFromVorbis(vorbisStream);
 
 			struct TestData
 			{
-				short* data;
-				size_t position;
-				int max_position;
+				stb_vorbis* vorbisStream;
+				AudioBuffer* buffer;
 			};
 
-			TestData data = { decoded, 0, 44100 * 2 * 5 };
+			TestData data = { vorbisStream, &buffer1 };
 
-			err = Pa_OpenDefaultStream(&stream, 0, 2, paInt16, 44100, 256, [](
+			PaStream* stream;
+			err = Pa_OpenDefaultStream(&stream, 0, 2, paFloat32, 44100, paFramesPerBufferUnspecified, [](
 				const void* input,
 				void* output,
 				unsigned long frameCount,
@@ -60,16 +118,21 @@ namespace AF
 				void* userData
 				) -> int
 			{
-				short* out = (short*) output;
+				float* out = (float*) output;
 				TestData* data = (TestData*) userData;
 
-				for (int i = 0; i < 256; i++)
+				for (int i = 0; i < frameCount; i++)
 				{
-					*out++ = data->data[data->position++];
-					*out++ = data->data[data->position++];
-				}
+					for (int j = 0; j < data->buffer->m_Channels; j++)
+					{
+						*out++ = data->buffer->NextSample();
+					}
 
-				if (data->position >= data->max_position) data->position -= data->max_position;
+					if (data->buffer->IsComplete())
+					{
+						data->buffer->LoadFromVorbis(data->vorbisStream);
+					}
+				}
 
 				return 0;
 			}, &data);
@@ -97,6 +160,8 @@ namespace AF
 				Update();
 			}
 
+			stb_vorbis_close(vorbisStream);
+
 			err = Pa_StopStream(stream);
 			if (err != paNoError)
 				printf("PortAudio error: %s\n", Pa_GetErrorText(err));
@@ -104,6 +169,7 @@ namespace AF
 			err = Pa_Terminate();
 			if (err != paNoError)
 				printf("PortAudio error: %s\n", Pa_GetErrorText(err));
+		
 		});
 
 		while (m_Running)
