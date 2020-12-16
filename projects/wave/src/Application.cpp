@@ -58,6 +58,12 @@ namespace AF
 				{
 					m_LoadedSize = stb_vorbis_get_samples_float_interleaved(stream, m_Channels, m_Data, m_Size) * m_Channels;
 					m_Position = 0;
+
+					if (m_LoadedSize == 0)
+					{
+						stb_vorbis_seek_start(stream);
+						LoadFromVorbis(stream);
+					}
 				}
 
 				bool IsComplete()
