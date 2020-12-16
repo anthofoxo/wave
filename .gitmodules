@@ -14,3 +14,6 @@
 	path = projects/spdlog
 	url = https://github.com/gabime/spdlog
 	branch = master
+[submodule "projects/portaudio"]
+	path = projects/portaudio
+	url = https://github.com/PortAudio/portaudio
