@@ -14,6 +14,3 @@
 	path = projects/spdlog
 	url = https://github.com/gabime/spdlog
 	branch = master
-[submodule "projects/entt"]
-	path = projects/entt
-	url = https://github.com/skypjack/entt/
