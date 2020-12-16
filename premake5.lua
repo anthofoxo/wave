@@ -18,8 +18,48 @@ includes["glfw"] = "projects/glfw/include/"
 includes["glm"] = "projects/glm/"
 includes["spdlog"] = "projects/spdlog/include/"
 includes["nanovg"] = "projects/nanovg/src/"
+includes["portaudio"] = "projects/portaudio/include/"
 
 group "deps"
+
+project "portaudio"
+	location (prjroot)
+	kind "StaticLib"
+	language "C"
+	
+	targetdir (bindir)
+	objdir (intdir)
+	
+	files
+	{
+		prjroot .. "src/common/**.c",
+		prjroot .. "src/os/win/**.c",
+		prjroot .. "src/hostapi/wmme/**.c",
+	}
+	
+	includedirs
+	{
+		prjroot .. "include",
+		prjroot .. "src/common"
+	}
+	
+	defines
+	{
+		"_CRT_SECURE_NO_WARNINGS",
+		"PA_USE_WMME"
+	}
+	
+	filter "configurations:Debug"
+		symbols "On"
+	
+	filter "configurations:Release"
+		optimize "On"
+		
+	filter "configurations:Dist"
+		optimize "On"
+		
+	filter "system:windows"
+		staticruntime "On"
 
 project "glad"
 	location (prjroot)
@@ -238,7 +278,8 @@ project "wave"
 		includes["glfw"],
 		includes["glm"],
 		includes["spdlog"],
-		includes["nanovg"]
+		includes["nanovg"],
+		includes["portaudio"]
 	}
 	
 	defines
@@ -251,7 +292,8 @@ project "wave"
 	{
 		"glad",
 		"glfw",
-		"nanovg"
+		"nanovg",
+		"portaudio"
 	}
 		
 	filter "system:windows"
