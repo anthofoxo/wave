@@ -64,6 +64,8 @@ namespace AF
 						stb_vorbis_seek_start(stream);
 						LoadFromVorbis(stream);
 					}
+
+					AF_TRACE("Loaded audio buffer");
 				}
 
 				bool IsComplete()
@@ -87,12 +89,16 @@ namespace AF
 				printf("PortAudio error: %s\n", Pa_GetErrorText(err));
 
 			stb_vorbis* vorbisStream;
+
 			{
 				int error = 0;
-				vorbisStream = stb_vorbis_open_filename("res/music.ogg", &error, nullptr);
+				vorbisStream = stb_vorbis_open_filename("res/music/Full Moon.ogg", &error, nullptr);
 
 				if (error != VORBIS__no_error)
+				{
 					__debugbreak();
+				}
+					
 			}
 
 			int sampleRate;
