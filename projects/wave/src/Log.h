@@ -4,8 +4,14 @@
 
 #include <spdlog/spdlog.h>
 
-#define AF_DEBUG(...) ::AF::s_Logger->debug(__VA_ARGS__)
-#define AF_TRACE(...) ::AF::s_Logger->trace(__VA_ARGS__)
+#if defined(AF_CONF_DIST)
+#	define AF_DEBUG(...)
+#	define AF_TRACE(...)
+#else
+#	define AF_DEBUG(...) ::AF::s_Logger->debug(__VA_ARGS__)
+#	define AF_TRACE(...) ::AF::s_Logger->trace(__VA_ARGS__)
+#endif
+
 #define AF_INFO(...) ::AF::s_Logger->info(__VA_ARGS__)
 #define AF_WARN(...) ::AF::s_Logger->warn(__VA_ARGS__)
 #define AF_ERROR(...) ::AF::s_Logger->error(__VA_ARGS__)
