@@ -124,11 +124,12 @@ void Entity::Update()
 class Trail : public Entity
 {
 public:
-	Trail(float lifetime, glm::vec2 position, glm::vec4 color)
+	Trail(float lifetime, glm::vec2 position, glm::vec2 size, glm::vec4 color)
 		: m_Timer(lifetime, true)
 	{
 		m_Position = position;
 		m_Color = color;
+		m_Size = size;
 		m_Tag = EntityTag::TRAIL;
 	}
 
@@ -200,7 +201,7 @@ public:
 
 		if (m_Timer.Update(static_cast<float>(app->m_DeltaTime)))
 		{
-			auto trail = std::make_shared<Trail>(0.3f, m_Position, m_Color);
+			auto trail = std::make_shared<Trail>(0.3f, m_Position, m_Size, m_Color);
 			m_Manager->AddEntity(trail);
 		}
 	}
@@ -266,12 +267,77 @@ public:
 
 		if (m_Timer.Update(static_cast<float>(app->m_DeltaTime)))
 		{
-			auto trail = std::make_shared<Trail>(0.3f, m_Position, m_Color);
+			auto trail = std::make_shared<Trail>(0.2f, m_Position, m_Size, m_Color);
 			m_Manager->AddEntity(trail);
 		}
 	}
 
-	AF::Timer<float> m_Timer = AF::Timer<float>(0.02f);
+	AF::Timer<float> m_Timer = AF::Timer<float>(0.01f);
+};
+
+class FastEnemy : public Entity
+{
+public:
+	virtual void Init() override
+	{
+		m_Tag = EntityTag::ENEMY;
+
+		auto* app = AF::GetApplication();
+
+		m_Color = { 0.0f, 0.5f, 1.0f, 1.0f };
+
+		glm::vec2 speedRange = { 500.0f, 1000.0f };
+
+		do
+		{
+			m_Velocity.x = glm::linearRand<float>(-speedRange[1], speedRange[1]);
+			m_Velocity.y = glm::linearRand<float>(-speedRange[1], speedRange[1]);
+		} while (glm::length(m_Velocity) < speedRange[0]);
+
+		m_Position.x = glm::linearRand<float>(0.0f, app->m_ReferenceSize.x - m_Size.x);
+		m_Position.y = glm::linearRand<float>(0.0f, app->m_ReferenceSize.y - m_Size.y);
+	}
+
+	virtual ~FastEnemy() = default;
+
+	virtual void Behaviour() override
+	{
+		auto* app = AF::GetApplication();
+
+		m_Position += m_Velocity * static_cast<float>(app->m_DeltaTime);
+
+		if (m_Position.x + m_Size.x > app->m_ReferenceSize.x)
+		{
+			m_Position.x = app->m_ReferenceSize.x - m_Size.x;
+			m_Velocity.x *= -1.0f;
+		}
+
+		if (m_Position.y + m_Size.y > app->m_ReferenceSize.y)
+		{
+			m_Position.y = app->m_ReferenceSize.y - m_Size.y;
+			m_Velocity.y *= -1.0f;
+		}
+
+		if (m_Position.x < 0.0f)
+		{
+			m_Position.x = 0.0f;
+			m_Velocity.x *= -1.0f;
+		}
+
+		if (m_Position.y < 0.0f)
+		{
+			m_Position.y = 0.0f;
+			m_Velocity.y *= -1.0f;
+		}
+
+		if (m_Timer.Update(static_cast<float>(app->m_DeltaTime)))
+		{
+			auto trail = std::make_shared<Trail>(0.2f, m_Position, m_Size, m_Color);
+			m_Manager->AddEntity(trail);
+		}
+	}
+
+	AF::Timer<float> m_Timer = AF::Timer<float>(0.01f);
 };
 
 class MenuState : public AF::State
@@ -330,7 +396,7 @@ public:
 
 		if (m_Timer.Update(static_cast<float>(app->m_DeltaTime)))
 		{
-			auto trail = std::make_shared<Trail>(0.3f, m_Position, m_Color);
+			auto trail = std::make_shared<Trail>(0.2f, m_Position, m_Size, m_Color);
 			m_Manager->AddEntity(trail);
 		}
 
@@ -340,7 +406,7 @@ public:
 
 			if (IntersectsWith(entity))
 			{
-				currentHealth -= 100.0f * app->m_DeltaTime;
+				currentHealth -= (entity->m_Size.x * 3.0f) * app->m_DeltaTime;
 			}
 		}
 
@@ -362,7 +428,7 @@ public:
 		app->m_Renderer.VGRP_FillRect(m_Position + glm::vec2{ 100.0f, 100.0f }, { healthWidth, 20.0f }, { 1.0f, 0.0f, 0.0f, 0.75f });
 	}
 
-	AF::Timer<float> m_Timer = AF::Timer<float>(0.02f);
+	AF::Timer<float> m_Timer = AF::Timer<float>(0.01f);
 	float maxHealth = 100.0f;
 	float currentHealth = maxHealth;
 };
@@ -381,7 +447,72 @@ public:
 		auto* app = AF::GetApplication();
 
 		if (m_Timer.Update(static_cast<float>(app->m_DeltaTime)))
-			m_EntityManager.AddEntity(std::make_shared<BasicEnemy>());
+		{
+			++m_CurrentLevel;
+
+			
+
+			if (m_CurrentLevel == 4)
+			{
+				std::vector<std::shared_ptr<Entity>> currentEntities;
+
+				for (auto entity : m_EntityManager.m_Entities)
+				{
+					if(entity->m_Tag == EntityTag::ENEMY)
+						currentEntities.push_back(entity);
+				}
+
+				for (auto entity : currentEntities)
+				{
+					m_EntityManager.RemoveEntity(entity);
+				}
+
+				for (auto entity : currentEntities)
+				{
+					auto enemy1 = std::make_shared<BasicEnemy>();
+					auto enemy2 = std::make_shared<BasicEnemy>();
+					auto enemy3 = std::make_shared<BasicEnemy>();
+					auto enemy4 = std::make_shared<BasicEnemy>();
+
+					m_EntityManager.AddEntity(enemy1);
+					m_EntityManager.AddEntity(enemy2);
+					m_EntityManager.AddEntity(enemy3);
+					m_EntityManager.AddEntity(enemy4);
+
+					enemy1->m_Size = entity->m_Size * 0.5f;
+					enemy2->m_Size = entity->m_Size * 0.5f;
+					enemy3->m_Size = entity->m_Size * 0.5f;
+					enemy4->m_Size = entity->m_Size * 0.5f;
+
+					enemy1->m_Position = entity->m_Position + glm::vec2(0.0f, 0.0f);
+					enemy2->m_Position = entity->m_Position + glm::vec2(0.0f, entity->m_Size.y * 0.25f);
+					enemy3->m_Position = entity->m_Position + glm::vec2(entity->m_Size.x * 0.25f, 0.0f);
+					enemy4->m_Position = entity->m_Position + glm::vec2(entity->m_Size.x * 0.25f, entity->m_Size.y * 0.25f);
+
+					enemy1->m_Velocity = entity->m_Velocity * 0.8f;
+					enemy2->m_Velocity = entity->m_Velocity * 0.8f;
+					enemy3->m_Velocity = entity->m_Velocity * 0.8f;
+					enemy4->m_Velocity = entity->m_Velocity * 0.8f;
+
+					float min = 32.0f;
+
+					enemy1->m_Velocity += glm::vec2{ glm::linearRand<float>(-min, min), glm::linearRand<float>(-min, min) };
+					enemy2->m_Velocity += glm::vec2{ glm::linearRand<float>(-min, min), glm::linearRand<float>(-min, min) };
+					enemy3->m_Velocity += glm::vec2{ glm::linearRand<float>(-min, min), glm::linearRand<float>(-min, min) };
+					enemy4->m_Velocity += glm::vec2{ glm::linearRand<float>(-min, min), glm::linearRand<float>(-min, min) };
+					
+				}
+
+			}
+			else if(m_CurrentLevel > 5)
+			{
+				m_EntityManager.AddEntity(std::make_shared<FastEnemy>());
+			}
+			else
+			{
+				m_EntityManager.AddEntity(std::make_shared<BasicEnemy>());
+			}
+		}
 
 		app->m_Renderer.BeginFrame(app->m_ReferenceSize);
 		m_EntityManager.Update();
@@ -402,6 +533,7 @@ public:
 	}
 
 	AF::Timer<float> m_Timer = AF::Timer<float>(5.0f);
+	int m_CurrentLevel = 0;
 };
 
 void MenuState::Update()
