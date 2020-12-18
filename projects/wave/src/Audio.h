@@ -39,6 +39,8 @@ namespace AF
 
 		static int OnStreamUpdate(const void* inputStream, void* outputStream, unsigned long frameCount, const PaStreamCallbackTimeInfo* timeInfo, PaStreamCallbackFlags statusFlags, void* userData);
 
+		float m_Volume = 1.0f;
+
 		int m_Channels;
 		int m_SampleRate;
 		bool m_Success;

@@ -91,7 +91,7 @@ namespace AF
 				auto buffer = owner->m_Queue[0];
 
 				for (int j = 0; j < owner->m_Channels; ++j)
-					*output++ = buffer->NextSample();
+					*output++ = buffer->NextSample() * owner->m_Volume;
 
 				if (buffer->IsComplete())
 				{

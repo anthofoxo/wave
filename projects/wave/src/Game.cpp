@@ -358,6 +358,7 @@ public:
 	EntityManager m_EntityManager = EntityManager(this);
 
 	AF::Timer<float> m_Timer = AF::Timer<float>(0.12f);
+	AF::Timer<float> m_FadeTimer = AF::Timer<float>(0.5f, true);
 };
 
 class Player : public Entity
@@ -621,6 +622,7 @@ void MenuState::Update()
 		
 	AF::Debugger::Update();
 
+
 	app->m_Renderer.EndFrame();
 
 	if (m_Timer.Update(static_cast<float>(app->m_DeltaTime)))
@@ -628,6 +630,8 @@ void MenuState::Update()
 		auto entity = std::make_shared<MenuParticle>();
 		m_EntityManager.AddEntity(entity);
 	}
+
+
 }
 
 void MenuState::Attach()

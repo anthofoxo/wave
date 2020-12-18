@@ -65,6 +65,7 @@ namespace AF
 		std::thread thread = std::thread([&]()
 		{
 			auto output = m_AudioMaster.CreateAudioOutput(2, AF_STANDARD_SAMPLE_RATE);
+			output->m_Volume = 0.05f;
 
 			stb_vorbis* vorbisStream = nullptr;
 
