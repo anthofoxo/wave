@@ -650,22 +650,6 @@ namespace AF
 {
 	Application* CreateApplication()
 	{
-		
-		class Test
-		{
-		public:
-			Test()
-			{
-				auto& type = typeid(*this);
-
-				std::cout << type.hash_code() << std::endl;
-				std::cout << type.name() << std::endl;
-			}
-		};
-
-		Test();
-		Test();
-
 		Application* app = new AF::Application();
 
 		app->InvokeLater([app]()
