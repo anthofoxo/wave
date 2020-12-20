@@ -2,6 +2,10 @@
 
 namespace AF::ECS
 {
+	void Component::Start()
+	{
+	}
+
 	void Component::Update()
 	{
 	}
@@ -13,8 +17,22 @@ namespace AF::ECS
 
 	void Entity::Update()
 	{
+		if (m_FirstFrame)
+		{
+			for (auto [key, value] : m_Components)
+				value->Start();
+
+			m_FirstFrame = false;
+		}
+
 		for (auto [key, value] : m_Components)
 			value->Update();
+	}
+
+	void Entity::Kill()
+	{
+		if (std::shared_ptr<Scene> scene = m_Scene.lock())
+			scene->DestroyEntity(shared_from_this());
 	}
 
 	Scene::~Scene()

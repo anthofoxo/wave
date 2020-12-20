@@ -16,6 +16,8 @@ namespace AF::ECS
 		Component() = default;
 		virtual ~Component() = default;
 
+		virtual void Start();
+
 		virtual void Update();
 
 		std::weak_ptr<Entity> m_Entity = {};
@@ -35,12 +37,22 @@ namespace AF::ECS
 		}
 
 		template<typename t_Type>
+		std::shared_ptr<t_Type> GetComponent()
+		{
+			size_t id = typeid(t_Type).hash_code();
+
+			auto result = m_Components.find(id);
+			if (result == m_Components.end()) return {};
+
+			return result->second;
+		}
+
+		template<typename t_Type>
 		std::shared_ptr<t_Type> DestroyComponent()
 		{
 			size_t id = typeid(t_Type).hash_code();
 
 			auto result = m_Components.find(id);
-
 			if (result == m_Components.end()) return {};
 
 			std::shared_ptr<t_Type> component = result->second;
@@ -52,8 +64,11 @@ namespace AF::ECS
 
 		void Update();
 
+		void Kill();
+
 		std::weak_ptr<Scene> m_Scene;
 		std::unordered_map<size_t, std::shared_ptr<Component>> m_Components;
+		bool m_FirstFrame = true;
 	};
 
 	struct Scene final : public std::enable_shared_from_this<Scene>
