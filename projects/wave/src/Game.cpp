@@ -1,6 +1,8 @@
 #include <memory>
 #include <array>
 #include <vector>
+#include <iostream>
+#include <typeinfo>
 
 #include <GLFW/glfw3.h>
 #include <glad/glad.h>
@@ -642,10 +644,28 @@ void MenuState::Detach()
 {
 }
 
+
+
 namespace AF
 {
 	Application* CreateApplication()
 	{
+		
+		class Test
+		{
+		public:
+			Test()
+			{
+				auto& type = typeid(*this);
+
+				std::cout << type.hash_code() << std::endl;
+				std::cout << type.name() << std::endl;
+			}
+		};
+
+		Test();
+		Test();
+
 		Application* app = new AF::Application();
 
 		app->InvokeLater([app]()
