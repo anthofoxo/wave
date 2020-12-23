@@ -313,6 +313,24 @@ struct EdgeBouncer : public AF::ECS::Component
 	}
 };
 
+struct EdgeClamper : public AF::ECS::Component
+{
+	EdgeClamper() = default;
+	virtual ~EdgeClamper() = default;
+
+	virtual void Update() override
+	{
+		if (std::shared_ptr<AF::ECS::Entity> entity = m_Entity.lock())
+		{
+			std::shared_ptr<Transform> transform = entity->GetComponent<Transform>();
+			auto* app = AF::GetApplication();
+
+			transform->m_Position.x = glm::clamp(transform->m_Position.x, 0.0f, app->m_ReferenceSize.x - transform->m_Size.x);
+			transform->m_Position.y = glm::clamp(transform->m_Position.y, 0.0f, app->m_ReferenceSize.y - transform->m_Size.y);
+		}
+	}
+};
+
 struct RandomSpawner : public AF::ECS::Component
 {
 	RandomSpawner(glm::vec2 speedRange = { 100.0f, 500.0f })
@@ -349,55 +367,25 @@ struct RandomSpawner : public AF::ECS::Component
 	glm::vec2 m_SpeedRange;
 };
 
-struct PlayerControlled : public AF::ECS::Component
+struct CenterSpawner : public AF::ECS::Component
 {
-	PlayerControlled() = default;
-	virtual ~PlayerControlled() = default;
+	CenterSpawner() = default;
+	virtual ~CenterSpawner() = default;
 
-	virtual void Update() override
+	virtual void Start() override
 	{
 		if (std::shared_ptr<AF::ECS::Entity> entity = m_Entity.lock())
 		{
-			std::shared_ptr<RigidBody> rigidBody = entity->GetComponent<RigidBody>();
+			std::shared_ptr<Transform> transform = entity->GetComponent<Transform>();
+			auto* app = AF::GetApplication();
 
-			if (rigidBody)
+			if (transform)
 			{
-				auto* app = AF::GetApplication();
-
-				rigidBody->m_Velocity = { 0.0f, 0.0f };
-
-				if (app->m_Keys.find(GLFW_KEY_A) != app->m_Keys.end()) --rigidBody->m_Velocity.x;
-				if (app->m_Keys.find(GLFW_KEY_D) != app->m_Keys.end()) ++rigidBody->m_Velocity.x;
-				if (app->m_Keys.find(GLFW_KEY_W) != app->m_Keys.end()) --rigidBody->m_Velocity.y;
-				if (app->m_Keys.find(GLFW_KEY_S) != app->m_Keys.end()) ++rigidBody->m_Velocity.y;
+				transform->m_Position = (app->m_ReferenceSize - transform->m_Size) / 2.0f;	
 			}
 		}
 	}
-
-	glm::vec2 m_SpeedRange;
 };
-
-void CreateBasicEnemy(std::shared_ptr<AF::ECS::Scene> scene)
-{
-	std::shared_ptr<AF::ECS::Entity> newEntity = scene->CreateEntity();
-	newEntity->CreateComponent<EntityTag>(EntityTag::ENEMY);
-	newEntity->CreateComponent<BoxRenderer>(glm::vec4{ 1.0f, 0.0f, 0.0f, 1.0f });
-	newEntity->CreateComponent<TrailSpawner>(0.3f);
-	newEntity->CreateComponent<EdgeBouncer>();
-	newEntity->CreateComponent<Transform>();
-	newEntity->CreateComponent<RandomSpawner>(100.0f, 500.0f);
-}
-
-void CreateFastEnemy(std::shared_ptr<AF::ECS::Scene> scene)
-{
-	std::shared_ptr<AF::ECS::Entity> newEntity = scene->CreateEntity();
-	newEntity->CreateComponent<EntityTag>(EntityTag::ENEMY);
-	newEntity->CreateComponent<BoxRenderer>(glm::vec4{ 0.0f, 0.2f, 1.0f, 1.0f });
-	newEntity->CreateComponent<TrailSpawner>(0.3f);
-	newEntity->CreateComponent<EdgeBouncer>();
-	newEntity->CreateComponent<Transform>();
-	newEntity->CreateComponent<RandomSpawner>(700.0f, 1000.0f);
-}
 
 class MenuState : public AF::State
 {
@@ -414,86 +402,144 @@ public:
 	virtual void Attach();
 	virtual void Detach();
 
-	AF::ECS::Scene m_Scene = AF::ECS::Scene();
+	std::shared_ptr<AF::ECS::Scene> m_Scene = std::make_shared<AF::ECS::Scene>();
 
 	AF::Timer<float> m_Timer = AF::Timer<float>(0.12f);
 	AF::Timer<float> m_FadeTimer = AF::Timer<float>(0.5f, true);
 };
 
-class Player : public Entity
+struct PlayerControlled : public AF::ECS::Component
 {
-public:
-	virtual void Init() override
+	PlayerControlled() = default;
+	virtual ~PlayerControlled() = default;
+
+	virtual void Update() override
 	{
-		m_Tag = EntityTag::PLAYER;
-
-		auto* app = AF::GetApplication();
-
-		m_Color = { 1.0f, 1.0f, 1.0f, 1.0f };
-
-		m_Position.x = (app->m_ReferenceSize.x - m_Size.x) / 2.0f;
-		m_Position.y = (app->m_ReferenceSize.y - m_Size.y) / 2.0f;
-	}
-
-	virtual ~Player() = default;
-
-	virtual void Behaviour() override
-	{
-		auto* app = AF::GetApplication();
-
-		m_Velocity = { 0.0f, 0.0f };
-
-		
-
-		m_Velocity *= 500.0f;
-
-		m_Position += m_Velocity * static_cast<float>(app->m_DeltaTime);
-
-		m_Position = glm::clamp(m_Position, { 0.0f, 0.0f }, app->m_ReferenceSize - m_Size);
-
-		if (m_Timer.Update(static_cast<float>(app->m_DeltaTime)))
+		if (std::shared_ptr<AF::ECS::Entity> entity = m_Entity.lock())
 		{
-			auto trail = std::make_shared<Trail>(0.2f, m_Position, m_Size, m_Color);
-			m_Manager->AddEntity(trail);
-		}
+			std::shared_ptr<RigidBody> rigidBody = entity->GetComponent<RigidBody>();
+			std::shared_ptr<Transform> transform = entity->GetComponent<Transform>();
 
-		for (auto entity : m_Manager->m_Entities)
-		{
-			if (entity->m_Tag != EntityTag::ENEMY) continue;
-
-			if (IntersectsWith(entity))
+			if (rigidBody)
 			{
-				currentHealth -= (entity->m_Size.x * 3.0f) * app->m_DeltaTime;
+				auto* app = AF::GetApplication();
+
+				rigidBody->m_Velocity = { 0.0f, 0.0f };
+
+				if (app->m_Keys.find(GLFW_KEY_A) != app->m_Keys.end()) --rigidBody->m_Velocity.x;
+				if (app->m_Keys.find(GLFW_KEY_D) != app->m_Keys.end()) ++rigidBody->m_Velocity.x;
+				if (app->m_Keys.find(GLFW_KEY_W) != app->m_Keys.end()) --rigidBody->m_Velocity.y;
+				if (app->m_Keys.find(GLFW_KEY_S) != app->m_Keys.end()) ++rigidBody->m_Velocity.y;
+
+				rigidBody->m_Velocity *= 500.0f;
+			}
+
+			std::shared_ptr<AF::ECS::Scene> scene = entity->m_Scene.lock();
+
+			if (scene && transform)
+			{
+
+				auto* app = AF::GetApplication();
+
+				for (auto other : scene->m_Entities)
+				{
+					auto tag = other->GetComponent<EntityTag>();
+
+					if (tag && tag->m_Type == EntityTag::ENEMY)
+					{
+						if (transform->IntersectsWith(other->GetComponent<Transform>()))
+						{
+							m_CurrentHealth -= (other->GetComponent<Transform>()->m_Size.x * 3.0f) * app->m_DeltaTime;
+						}
+					}
+				}
+
+				if (m_CurrentHealth <= 0.0f)
+				{
+					app->InvokeLater([]()
+					{
+						AF::GetApplication()->m_StateManager.SetState(std::make_shared<MenuState>());
+					});
+				}
+
+				m_CurrentHealth += app->m_DeltaTime * 5.0f;
+				m_CurrentHealth = glm::clamp(m_CurrentHealth, 0.0f, m_MaxHealth);
+
+				float width = 200.0f;
+				float healthWidth = m_CurrentHealth / m_MaxHealth * width;
+
+				app->m_Renderer.VGRP_FillRect(transform->m_Position + glm::vec2{ 100.0f + healthWidth, 100.0f }, { width - healthWidth, 20.0f }, { 1.0f, 1.0f, 1.0f, 0.5f });
+				app->m_Renderer.VGRP_FillRect(transform->m_Position + glm::vec2{ 100.0f, 100.0f }, { healthWidth, 20.0f }, { 1.0f, 0.0f, 0.0f, 0.75f });
 			}
 		}
-
-		if (currentHealth <= 0.0f)
-		{
-			app->InvokeLater([]()
-			{
-				AF::GetApplication()->m_StateManager.SetState(std::make_shared<MenuState>());
-			});
-		}
-
-		currentHealth += app->m_DeltaTime * 5.0f;
-		currentHealth = glm::clamp(currentHealth, 0.0f, maxHealth);
-
-		float width = 200.0f;
-		float healthWidth = currentHealth / maxHealth * width;
-
-		app->m_Renderer.VGRP_FillRect(m_Position + glm::vec2{ 100.0f + healthWidth, 100.0f }, { width - healthWidth, 20.0f }, { 1.0f, 1.0f, 1.0f, 0.5f });
-		app->m_Renderer.VGRP_FillRect(m_Position + glm::vec2{ 100.0f, 100.0f }, { healthWidth, 20.0f }, { 1.0f, 0.0f, 0.0f, 0.75f });
 	}
 
-	AF::Timer<float> m_Timer = AF::Timer<float>(0.01f);
-	float maxHealth = 100.0f;
-	float currentHealth = maxHealth;
+	glm::vec2 m_SpeedRange;
+	float m_MaxHealth = 100.0f;
+	float m_CurrentHealth = 100.0f;
 };
+
+void CreateBasicEnemy(std::shared_ptr<AF::ECS::Scene> scene)
+{
+	AF::GetApplication()->InvokeLater([scene]()
+	{
+		std::shared_ptr<AF::ECS::Entity> newEntity = scene->CreateEntity();
+		newEntity->CreateComponent<EntityTag>(EntityTag::ENEMY);
+		newEntity->CreateComponent<BoxRenderer>(glm::vec4{ 1.0f, 0.0f, 0.0f, 1.0f });
+		newEntity->CreateComponent<TrailSpawner>(0.3f);
+		newEntity->CreateComponent<EdgeBouncer>();
+		newEntity->CreateComponent<Transform>();
+		newEntity->CreateComponent<RandomSpawner>();
+	});
+}
+
+void CreateFastEnemy(std::shared_ptr<AF::ECS::Scene> scene)
+{
+	AF::GetApplication()->InvokeLater([scene]()
+	{
+		std::shared_ptr<AF::ECS::Entity> newEntity = scene->CreateEntity();
+		newEntity->CreateComponent<EntityTag>(EntityTag::ENEMY);
+		newEntity->CreateComponent<BoxRenderer>(glm::vec4{ 0.0f, 0.2f, 1.0f, 1.0f });
+		newEntity->CreateComponent<TrailSpawner>(0.3f);
+		newEntity->CreateComponent<EdgeBouncer>();
+		newEntity->CreateComponent<Transform>();
+		newEntity->CreateComponent<RandomSpawner>();
+	});
+}
+
+void CreatePlayer(std::shared_ptr<AF::ECS::Scene> scene)
+{
+	AF::GetApplication()->InvokeLater([scene]()
+	{
+		std::shared_ptr<AF::ECS::Entity> newEntity = scene->CreateEntity();
+		newEntity->CreateComponent<EntityTag>(EntityTag::PLAYER);
+		newEntity->CreateComponent<BoxRenderer>(glm::vec4{ 1.0f, 1.0f, 1.0f, 1.0f });
+		newEntity->CreateComponent<TrailSpawner>(0.3f);
+		newEntity->CreateComponent<EdgeClamper>();
+		newEntity->CreateComponent<Transform>();
+		newEntity->CreateComponent<CenterSpawner>();
+	});
+}
+
+void CreateMenuParticle(std::shared_ptr<AF::ECS::Scene> scene)
+{
+	AF::GetApplication()->InvokeLater([scene]()
+	{
+		std::shared_ptr<AF::ECS::Entity> newEntity = scene->CreateEntity();
+		newEntity->CreateComponent<EntityTag>(EntityTag::NONE);
+		newEntity->CreateComponent<BoxRenderer>(glm::vec4{ 1.0f, 1.0f, 1.0f, 1.0f });
+		newEntity->CreateComponent<TrailSpawner>(0.3f);
+		newEntity->CreateComponent<EdgeKiller>();
+		newEntity->CreateComponent<Transform>();
+		newEntity->CreateComponent<EdgeSpawner>();
+		newEntity->CreateComponent<Flasher>();
+	});
+}
 
 class GameState : public AF::State
 {
 public:
-	EntityManager m_EntityManager = EntityManager(this);
+	std::shared_ptr<AF::ECS::Scene> m_Scene = std::make_shared<AF::ECS::Scene>();
 
 	GameState() = default;
 
@@ -511,7 +557,7 @@ public:
 
 			if (m_CurrentLevel == 4)
 			{
-				std::vector<std::shared_ptr<Entity>> currentEntities;
+				/*std::vector<std::shared_ptr<Entity>> currentEntities;
 
 				for (auto entity : m_EntityManager.m_Entities)
 				{
@@ -558,21 +604,22 @@ public:
 					enemy3->m_Velocity += glm::vec2{ glm::linearRand<float>(-min, min), glm::linearRand<float>(-min, min) };
 					enemy4->m_Velocity += glm::vec2{ glm::linearRand<float>(-min, min), glm::linearRand<float>(-min, min) };
 					
-				}
+				}*/
 
 			}
 			else if(m_CurrentLevel > 5)
 			{
-				m_EntityManager.AddEntity(std::make_shared<FastEnemy>());
+				CreateFastEnemy(m_Scene);
+				
 			}
 			else
 			{
-				m_EntityManager.AddEntity(std::make_shared<BasicEnemy>());
+				CreateBasicEnemy(m_Scene);
 			}
 		}
 
 		app->m_Renderer.BeginFrame(app->m_ReferenceSize);
-		m_EntityManager.Update();
+		m_Scene->Update();
 		app->m_Renderer.EndFrame();
 
 		app->m_Renderer.BeginFrame(app->m_Size);
@@ -582,7 +629,7 @@ public:
 
 	virtual void Attach() override
 	{
-		m_EntityManager.AddEntity(std::make_shared<Player>());
+		CreatePlayer(m_Scene);
 	}
 
 	virtual void Detach() override
@@ -626,7 +673,7 @@ void MenuState::Update()
 	};
 
 	app->m_Renderer.BeginFrame(app->m_ReferenceSize);
-	m_EntityManager.Update();
+	m_Scene->Update();
 	app->m_Renderer.EndFrame();
 
 	app->m_Renderer.BeginFrame(app->m_Size);
@@ -683,11 +730,8 @@ void MenuState::Update()
 
 	if (m_Timer.Update(static_cast<float>(app->m_DeltaTime)))
 	{
-		auto entity = std::make_shared<MenuParticle>();
-		m_EntityManager.AddEntity(entity);
+		CreateMenuParticle(m_Scene);
 	}
-
-
 }
 
 void MenuState::Attach()

@@ -44,7 +44,7 @@ namespace AF::ECS
 			auto result = m_Components.find(id);
 			if (result == m_Components.end()) return {};
 
-			return result->second;
+			return std::dynamic_pointer_cast<t_Type>(result->second);
 		}
 
 		template<typename t_Type>
