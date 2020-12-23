@@ -32,7 +32,8 @@ namespace AF::ECS
 		{
 			std::shared_ptr<t_Type> component = std::make_shared<t_Type>(std::forward<t_Args>(args)...);
 			component->m_Entity = weak_from_this();
-			m_Components.insert(std::make_pair(typeid(t_Type).hash_code(), component));
+			m_Components[typeid(t_Type).hash_code()] = component;
+			//m_Components.insert(std::make_pair(typeid(t_Type).hash_code(), component));
 			return component;
 		}
 

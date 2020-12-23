@@ -1,5 +1,7 @@
 #include "ECS.h"
 
+#include "Application.h"
+
 namespace AF::ECS
 {
 	void Component::Start()
@@ -49,9 +51,14 @@ namespace AF::ECS
 
 	std::shared_ptr<Entity> Scene::DestroyEntity(std::shared_ptr<Entity> entity)
 	{
-		m_Entities.erase(std::remove(m_Entities.begin(), m_Entities.end(), entity));
-		entity->m_Scene = {};
-
+		AF::GetApplication()->InvokeLater([entity, this]()
+		{
+			if (!m_Entities.empty())
+			{
+				m_Entities.erase(std::remove(m_Entities.begin(), m_Entities.end(), entity));
+				entity->m_Scene = {};
+			}
+		});		
 		return entity;
 	}
 
@@ -65,7 +72,11 @@ namespace AF::ECS
 
 	void Scene::Update()
 	{
-		for (auto entity : m_Entities)
-			entity->Update();
+		//for (auto entity : m_Entities)
+		for (int i = m_Entities.size() - 1; i >= 0; --i)
+		{
+			m_Entities[i]->Update();
+		}
+			
 	}
 }

@@ -258,7 +258,7 @@ struct TrailSpawner : public AF::ECS::Component
 						std::shared_ptr<AF::ECS::Entity> newEntity = scene->CreateEntity();
 						newEntity->CreateComponent<EntityTag>(EntityTag::TRAIL);
 						newEntity->CreateComponent<BoxRenderer>(boxRenderer->m_Color);
-						newEntity->CreateComponent<TrailSpawner>(0.3f);
+						newEntity->CreateComponent<Fader>();
 						newEntity->CreateComponent<Transform>(transform->m_Position, transform->m_Size);
 					}
 				}
@@ -486,10 +486,11 @@ void CreateBasicEnemy(std::shared_ptr<AF::ECS::Scene> scene)
 		std::shared_ptr<AF::ECS::Entity> newEntity = scene->CreateEntity();
 		newEntity->CreateComponent<EntityTag>(EntityTag::ENEMY);
 		newEntity->CreateComponent<BoxRenderer>(glm::vec4{ 1.0f, 0.0f, 0.0f, 1.0f });
-		newEntity->CreateComponent<TrailSpawner>(0.3f);
+		newEntity->CreateComponent<TrailSpawner>(0.02f);
 		newEntity->CreateComponent<EdgeBouncer>();
 		newEntity->CreateComponent<Transform>();
 		newEntity->CreateComponent<RandomSpawner>();
+		newEntity->CreateComponent<RigidBody>();
 	});
 }
 
@@ -500,10 +501,11 @@ void CreateFastEnemy(std::shared_ptr<AF::ECS::Scene> scene)
 		std::shared_ptr<AF::ECS::Entity> newEntity = scene->CreateEntity();
 		newEntity->CreateComponent<EntityTag>(EntityTag::ENEMY);
 		newEntity->CreateComponent<BoxRenderer>(glm::vec4{ 0.0f, 0.2f, 1.0f, 1.0f });
-		newEntity->CreateComponent<TrailSpawner>(0.3f);
+		newEntity->CreateComponent<TrailSpawner>(0.02f);
 		newEntity->CreateComponent<EdgeBouncer>();
 		newEntity->CreateComponent<Transform>();
-		newEntity->CreateComponent<RandomSpawner>();
+		newEntity->CreateComponent<RandomSpawner>(glm::vec2{ 500.0f, 1000.0f });
+		newEntity->CreateComponent<RigidBody>();
 	});
 }
 
@@ -514,10 +516,12 @@ void CreatePlayer(std::shared_ptr<AF::ECS::Scene> scene)
 		std::shared_ptr<AF::ECS::Entity> newEntity = scene->CreateEntity();
 		newEntity->CreateComponent<EntityTag>(EntityTag::PLAYER);
 		newEntity->CreateComponent<BoxRenderer>(glm::vec4{ 1.0f, 1.0f, 1.0f, 1.0f });
-		newEntity->CreateComponent<TrailSpawner>(0.3f);
+		newEntity->CreateComponent<TrailSpawner>(0.02f);
 		newEntity->CreateComponent<EdgeClamper>();
 		newEntity->CreateComponent<Transform>();
 		newEntity->CreateComponent<CenterSpawner>();
+		newEntity->CreateComponent<RigidBody>();
+		newEntity->CreateComponent<PlayerControlled>();
 	});
 }
 
@@ -528,10 +532,11 @@ void CreateMenuParticle(std::shared_ptr<AF::ECS::Scene> scene)
 		std::shared_ptr<AF::ECS::Entity> newEntity = scene->CreateEntity();
 		newEntity->CreateComponent<EntityTag>(EntityTag::NONE);
 		newEntity->CreateComponent<BoxRenderer>(glm::vec4{ 1.0f, 1.0f, 1.0f, 1.0f });
-		newEntity->CreateComponent<TrailSpawner>(0.3f);
+		newEntity->CreateComponent<TrailSpawner>(0.02f);
 		newEntity->CreateComponent<EdgeKiller>();
 		newEntity->CreateComponent<Transform>();
 		newEntity->CreateComponent<EdgeSpawner>();
+		newEntity->CreateComponent<RigidBody>();
 		newEntity->CreateComponent<Flasher>();
 	});
 }
