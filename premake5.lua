@@ -19,6 +19,7 @@ includes["glm"] = "projects/glm/"
 includes["spdlog"] = "projects/spdlog/include/"
 includes["nanovg"] = "projects/nanovg/src/"
 includes["portaudio"] = "projects/portaudio/include/"
+includes["incbin"] = "projects/incbin/"
 
 group "deps"
 
@@ -247,6 +248,43 @@ project "nanovg"
 	filter "system:windows"
 		staticruntime "On"
 
+project "incbin"
+	location (prjroot)
+	kind "ConsoleApp"
+	language "C"
+
+	targetdir (bindir)
+	objdir (intdir)
+
+	files
+	{
+		prjroot .. "incbin.c"
+	}
+
+	includedirs
+	{
+	}
+
+	defines
+	{
+	}
+	
+	filter "configurations:Debug"
+		symbols "On"
+		defines { "DEBUG" }
+		warnings "Extra"
+	
+	filter "configurations:Release"
+		optimize "On"
+		defines { "NDEBUG" }
+		warnings "Extra"
+		
+	filter "configurations:Dist"
+		optimize "On"
+		
+	filter "system:windows"
+		staticruntime "On"
+
 group ""
 
 project "wave"
@@ -266,10 +304,20 @@ project "wave"
 	targetdir (bindir)
 	objdir (intdir)
 
+	prebuildcommands
+	{
+		"%{wks.location}bin\\%{cfg.system}-%{cfg.buildcfg}-%{cfg.architecture}-incbin\\incbin.exe src/Resources.cpp -o src/ResourcesWin.c"
+	}
+
+
 	files
 	{
 		prjroot .. "src/**.h",
-		prjroot .. "src/**.cpp"
+		prjroot .. "src/**.cpp",
+		prjroot .. "src/**.c",
+		
+		-- This file is generated from a prebuildcommand
+		prjroot .. "src/ResourcesWin.c"
 	}
 	
 	includedirs
@@ -279,7 +327,8 @@ project "wave"
 		includes["glm"],
 		includes["spdlog"],
 		includes["nanovg"],
-		includes["portaudio"]
+		includes["portaudio"],
+		includes["incbin"]
 	}
 	
 	defines

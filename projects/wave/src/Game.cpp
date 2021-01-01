@@ -747,8 +747,6 @@ void MenuState::Detach()
 {
 }
 
-
-
 namespace AF
 {
 	Application* CreateApplication()

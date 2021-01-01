@@ -37,3 +37,7 @@
 *.sln
 *.vcxproj
 *.vcxproj.user
+*.vcxproj.filters
+*.aps
+
+projects/wave/src/ResourcesWin.c

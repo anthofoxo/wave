@@ -15,6 +15,8 @@
 #include <stdlib.h>
 #include <time.h>
 
+#include "Resources.h"
+
 #define STB_VORBIS_HEADER_ONLY
 #include "vendor/stb_vorbis.c"
 
@@ -199,8 +201,11 @@ namespace AF
 		m_Renderer.m_Vg = nvgCreateGL3(NVG_ANTIALIAS | NVG_STENCIL_STROKES);
 		AF_ASSERT(m_Renderer.m_Vg, "Failed to initialize nanovg");
 
+		
+
 		AF_TRACE("Loading nanovg font");
-		int result = nvgCreateFont(m_Renderer.m_Vg, "Roboto", "res/Roboto-Medium.ttf");
+		// int result = nvgCreateFont(m_Renderer.m_Vg, "Roboto", "res/Roboto-Medium.ttf");
+		int result = nvgCreateFontMem(m_Renderer.m_Vg, "Roboto", const_cast<unsigned char*>(gMainFontData), gMainFontSize, 0);
 		AF_ASSERT(result != -1, "Failed to load font");
 
 		AF_TRACE("Attaching ingame debugger");
