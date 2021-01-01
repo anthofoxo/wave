@@ -17,3 +17,6 @@
 [submodule "projects/portaudio"]
 	path = projects/portaudio
 	url = https://github.com/PortAudio/portaudio
+[submodule "projects/incbin"]
+	path = projects/incbin
+	url = https://github.com/graphitemaster/incbin/

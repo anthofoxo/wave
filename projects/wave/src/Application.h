@@ -9,6 +9,7 @@
 #include <glm/glm.hpp>
 #include <nanovg.h>
 
+#include "Audio.h"
 #include "State.h"
 #include "Renderer.h"
 
@@ -45,6 +46,7 @@ namespace AF
 		double m_DeltaTime = 0.0f;
 		Renderer m_Renderer;
 		GLFWwindow* m_Window = nullptr;
+		AudioMaster m_AudioMaster = AudioMaster();
 
 		StateManager m_StateManager;
 	};

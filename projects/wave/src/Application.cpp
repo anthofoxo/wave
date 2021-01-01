@@ -8,14 +8,50 @@
 #include <nanovg.h>
 #include <nanovg_gl.h>
 #include <glm/gtc/random.hpp>
-#include <portaudio.h>
-#include <future>
+
+#include "Log.h"
+#include "Debugger.h"
+
+#include <stdlib.h>
+#include <time.h>
+
+#include "Resources.h"
 
 #define STB_VORBIS_HEADER_ONLY
 #include "vendor/stb_vorbis.c"
 
-#include "Log.h"
-#include "Debugger.h"
+void PickNextTrack(stb_vorbis** stream, int number = -1)
+{
+	std::string filename = fmt::format("res/music/{:0>2}.ogg", (number == -1 ? glm::linearRand<int>(0, 19) : number));
+
+	if (*stream) stb_vorbis_close(*stream);
+
+	int error = 0;
+	*stream = stb_vorbis_open_filename(filename.c_str(), &error, nullptr);
+
+	if (error != VORBIS__no_error)
+	{
+		__debugbreak();
+	}
+}
+
+void LoadDataIntoBuffer(stb_vorbis** stream, std::shared_ptr<AF::AudioBuffer> buffer)
+{
+	srand(time(nullptr));
+
+	if(*stream == nullptr) PickNextTrack(stream, -1);
+
+	buffer->m_Limit = stb_vorbis_get_samples_float_interleaved(*stream, buffer->m_Channels, buffer->m_Buffer, buffer->m_BufferSize) * buffer->m_Channels;
+	buffer->m_Position = 0;
+
+	if (buffer->m_Limit == 0)
+	{
+		PickNextTrack(stream);
+		LoadDataIntoBuffer(stream, buffer);
+	}
+
+	AF_TRACE("Loaded audio buffer");
+}
 
 namespace AF
 {
@@ -30,125 +66,10 @@ namespace AF
 
 		std::thread thread = std::thread([&]()
 		{
-			struct AudioBuffer
-			{
-				AudioBuffer(size_t channels, size_t frames)
-				{
-					m_Data = new float[channels * frames];
-					m_Channels = channels;
-					m_Frames = frames;
-					m_Size = m_Frames * m_Channels;
-					m_LoadedSize = 0;
-					m_Position = 0;
-				}
-				~AudioBuffer()
-				{
-					delete[] m_Data;
-					m_Data = nullptr;
-				}
+			auto output = m_AudioMaster.CreateAudioOutput(2, AF_STANDARD_SAMPLE_RATE);
+			output->m_Volume = 0.05f;
 
-				float* m_Data;
-				size_t m_Frames;
-				size_t m_Channels;
-				size_t m_Size;
-				size_t m_LoadedSize;
-				size_t m_Position;
-
-				void LoadFromVorbis(stb_vorbis* stream)
-				{
-					m_LoadedSize = stb_vorbis_get_samples_float_interleaved(stream, m_Channels, m_Data, m_Size) * m_Channels;
-					m_Position = 0;
-
-					if (m_LoadedSize == 0)
-					{
-						stb_vorbis_seek_start(stream);
-						LoadFromVorbis(stream);
-					}
-				}
-
-				bool IsComplete()
-				{
-					return m_Position >= m_LoadedSize;
-				}
-
-				float NextSample()
-				{
-					if (IsComplete())
-					{
-						return 0;
-					}
-
-					return m_Data[m_Position++];
-				}
-			};
-
-			PaError err = Pa_Initialize();
-			if (err != paNoError)
-				printf("PortAudio error: %s\n", Pa_GetErrorText(err));
-
-			stb_vorbis* vorbisStream;
-			{
-				int error = 0;
-				vorbisStream = stb_vorbis_open_filename("res/music.ogg", &error, nullptr);
-
-				if (error != VORBIS__no_error)
-					__debugbreak();
-			}
-
-			int sampleRate;
-			int channels;
-			{
-				stb_vorbis_info info = stb_vorbis_get_info(vorbisStream);
-				sampleRate = info.sample_rate;
-				channels = info.channels;
-			}
-
-			AudioBuffer buffer1 = AudioBuffer(channels, sampleRate);
-			buffer1.LoadFromVorbis(vorbisStream);
-
-			struct TestData
-			{
-				stb_vorbis* vorbisStream;
-				AudioBuffer* buffer;
-			};
-
-			TestData data = { vorbisStream, &buffer1 };
-
-			PaStream* stream;
-			err = Pa_OpenDefaultStream(&stream, 0, 2, paFloat32, 44100, paFramesPerBufferUnspecified, [](
-				const void* input,
-				void* output,
-				unsigned long frameCount,
-				const PaStreamCallbackTimeInfo* timeInfo,
-				PaStreamCallbackFlags statusFlags,
-				void* userData
-				) -> int
-			{
-				float* out = (float*) output;
-				TestData* data = (TestData*) userData;
-
-				for (int i = 0; i < frameCount; i++)
-				{
-					for (int j = 0; j < data->buffer->m_Channels; j++)
-					{
-						*out++ = data->buffer->NextSample();
-					}
-
-					if (data->buffer->IsComplete())
-					{
-						data->buffer->LoadFromVorbis(data->vorbisStream);
-					}
-				}
-
-				return 0;
-			}, &data);
-
-			if (err != paNoError)
-				printf("PortAudio error: %s\n", Pa_GetErrorText(err));
-
-			err = Pa_StartStream(stream);
-			if (err != paNoError)
-				printf("PortAudio error: %s\n", Pa_GetErrorText(err));
+			stb_vorbis* vorbisStream = nullptr;
 
 			Init();
 
@@ -163,18 +84,19 @@ namespace AF
 				m_DeltaTime = currentTime - lastTime;
 				lastTime = currentTime;
 
+				while (output->m_Queue.size() < 2)
+				{
+					auto buffer = std::make_shared<AudioBuffer>(AF_STANDARD_SAMPLE_RATE, 2);
+					LoadDataIntoBuffer(&vorbisStream, buffer);
+					output->QueueBuffer(buffer);
+				}
+
 				Update();
 			}
 
 			stb_vorbis_close(vorbisStream);
 
-			err = Pa_StopStream(stream);
-			if (err != paNoError)
-				printf("PortAudio error: %s\n", Pa_GetErrorText(err));
-
-			err = Pa_Terminate();
-			if (err != paNoError)
-				printf("PortAudio error: %s\n", Pa_GetErrorText(err));
+			m_AudioMaster.DeleteAudioOutput(output);
 		
 		});
 
@@ -279,8 +201,11 @@ namespace AF
 		m_Renderer.m_Vg = nvgCreateGL3(NVG_ANTIALIAS | NVG_STENCIL_STROKES);
 		AF_ASSERT(m_Renderer.m_Vg, "Failed to initialize nanovg");
 
+		
+
 		AF_TRACE("Loading nanovg font");
-		int result = nvgCreateFont(m_Renderer.m_Vg, "Roboto", "res/Roboto-Medium.ttf");
+		// int result = nvgCreateFont(m_Renderer.m_Vg, "Roboto", "res/Roboto-Medium.ttf");
+		int result = nvgCreateFontMem(m_Renderer.m_Vg, "Roboto", const_cast<unsigned char*>(gMainFontData), gMainFontSize, 0);
 		AF_ASSERT(result != -1, "Failed to load font");
 
 		AF_TRACE("Attaching ingame debugger");
