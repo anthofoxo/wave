@@ -253,8 +253,8 @@ project "incbin"
 	kind "ConsoleApp"
 	language "C"
 
-	targetdir (bindir)
-	objdir (intdir)
+	targetdir "bin/%{cfg.system}-%{cfg.architecture}-%{prj.name}/"
+	objdir "bin-int/%{cfg.system}-%{cfg.architecture}-%{prj.name}/"
 
 	files
 	{
@@ -303,12 +303,6 @@ project "wave"
 	
 	targetdir (bindir)
 	objdir (intdir)
-
-	prebuildcommands
-	{
-		"%{wks.location}bin\\%{cfg.system}-%{cfg.buildcfg}-%{cfg.architecture}-incbin\\incbin.exe src/Resources.cpp -o src/ResourcesWin.c"
-	}
-
 
 	files
 	{

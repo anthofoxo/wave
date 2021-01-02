@@ -1,3 +1,23 @@
 #include "incbin.h"
 
 INCBIN(MainFont, "res/Roboto-Regular.ttf");
+INCBIN(Ost00, "res/music/00.ogg");
+INCBIN(Ost01, "res/music/01.ogg");
+INCBIN(Ost02, "res/music/02.ogg");
+INCBIN(Ost03, "res/music/03.ogg");
+INCBIN(Ost04, "res/music/04.ogg");
+INCBIN(Ost05, "res/music/05.ogg");
+INCBIN(Ost06, "res/music/06.ogg");
+INCBIN(Ost07, "res/music/07.ogg");
+INCBIN(Ost08, "res/music/08.ogg");
+INCBIN(Ost09, "res/music/09.ogg");
+INCBIN(Ost10, "res/music/10.ogg");
+INCBIN(Ost11, "res/music/11.ogg");
+INCBIN(Ost12, "res/music/12.ogg");
+INCBIN(Ost13, "res/music/13.ogg");
+INCBIN(Ost14, "res/music/14.ogg");
+INCBIN(Ost15, "res/music/15.ogg");
+INCBIN(Ost16, "res/music/16.ogg");
+INCBIN(Ost17, "res/music/17.ogg");
+INCBIN(Ost18, "res/music/18.ogg");
+INCBIN(Ost19, "res/music/19.ogg");

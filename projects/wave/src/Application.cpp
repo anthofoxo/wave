@@ -20,14 +20,47 @@
 #define STB_VORBIS_HEADER_ONLY
 #include "vendor/stb_vorbis.c"
 
+struct ResourceStruct
+{
+	const unsigned char* data;
+	const unsigned int size;
+};
+
+std::array<ResourceStruct, 20> musics =
+{
+	ResourceStruct{gOst00Data, gOst00Size},
+	ResourceStruct{gOst01Data, gOst01Size},
+	ResourceStruct{gOst02Data, gOst02Size},
+	ResourceStruct{gOst03Data, gOst03Size},
+	ResourceStruct{gOst04Data, gOst04Size},
+	ResourceStruct{gOst05Data, gOst05Size},
+	ResourceStruct{gOst06Data, gOst06Size},
+	ResourceStruct{gOst07Data, gOst07Size},
+	ResourceStruct{gOst08Data, gOst08Size},
+	ResourceStruct{gOst09Data, gOst09Size},
+	ResourceStruct{gOst10Data, gOst10Size},
+	ResourceStruct{gOst11Data, gOst11Size},
+	ResourceStruct{gOst12Data, gOst12Size},
+	ResourceStruct{gOst13Data, gOst13Size},
+	ResourceStruct{gOst14Data, gOst14Size},
+	ResourceStruct{gOst15Data, gOst15Size},
+	ResourceStruct{gOst16Data, gOst16Size},
+	ResourceStruct{gOst17Data, gOst17Size},
+	ResourceStruct{gOst18Data, gOst18Size},
+	ResourceStruct{gOst19Data, gOst19Size}
+};
+
 void PickNextTrack(stb_vorbis** stream, int number = -1)
 {
-	std::string filename = fmt::format("res/music/{:0>2}.ogg", (number == -1 ? glm::linearRand<int>(0, 19) : number));
+	int next = glm::linearRand<int>(0, musics.size() - 1);
 
-	if (*stream) stb_vorbis_close(*stream);
+	ResourceStruct nextTrack = musics[next];
+
+	if (*stream) stb_vorbis_close(*stream);	
 
 	int error = 0;
-	*stream = stb_vorbis_open_filename(filename.c_str(), &error, nullptr);
+	//*stream = stb_vorbis_open_filename(filename.c_str(), &error, nullptr);
+	*stream = stb_vorbis_open_memory(nextTrack.data, nextTrack.size, &error, nullptr);
 
 	if (error != VORBIS__no_error)
 	{
@@ -90,6 +123,9 @@ namespace AF
 					LoadDataIntoBuffer(&vorbisStream, buffer);
 					output->QueueBuffer(buffer);
 				}
+
+				if (m_Keys.find(GLFW_KEY_L) != m_Keys.end())
+					PickNextTrack(&vorbisStream);
 
 				Update();
 			}

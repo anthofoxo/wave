@@ -474,7 +474,6 @@ struct PlayerControlled : public AF::ECS::Component
 		}
 	}
 
-	glm::vec2 m_SpeedRange;
 	float m_MaxHealth = 100.0f;
 	float m_CurrentHealth = 100.0f;
 };
@@ -486,7 +485,7 @@ void CreateBasicEnemy(std::shared_ptr<AF::ECS::Scene> scene)
 		std::shared_ptr<AF::ECS::Entity> newEntity = scene->CreateEntity();
 		newEntity->CreateComponent<EntityTag>(EntityTag::ENEMY);
 		newEntity->CreateComponent<BoxRenderer>(glm::vec4{ 1.0f, 0.0f, 0.0f, 1.0f });
-		newEntity->CreateComponent<TrailSpawner>(0.02f);
+		newEntity->CreateComponent<TrailSpawner>();
 		newEntity->CreateComponent<EdgeBouncer>();
 		newEntity->CreateComponent<Transform>();
 		newEntity->CreateComponent<RandomSpawner>();
@@ -501,7 +500,7 @@ void CreateFastEnemy(std::shared_ptr<AF::ECS::Scene> scene)
 		std::shared_ptr<AF::ECS::Entity> newEntity = scene->CreateEntity();
 		newEntity->CreateComponent<EntityTag>(EntityTag::ENEMY);
 		newEntity->CreateComponent<BoxRenderer>(glm::vec4{ 0.0f, 0.2f, 1.0f, 1.0f });
-		newEntity->CreateComponent<TrailSpawner>(0.02f);
+		newEntity->CreateComponent<TrailSpawner>();
 		newEntity->CreateComponent<EdgeBouncer>();
 		newEntity->CreateComponent<Transform>();
 		newEntity->CreateComponent<RandomSpawner>(glm::vec2{ 500.0f, 1000.0f });
@@ -516,7 +515,7 @@ void CreatePlayer(std::shared_ptr<AF::ECS::Scene> scene)
 		std::shared_ptr<AF::ECS::Entity> newEntity = scene->CreateEntity();
 		newEntity->CreateComponent<EntityTag>(EntityTag::PLAYER);
 		newEntity->CreateComponent<BoxRenderer>(glm::vec4{ 1.0f, 1.0f, 1.0f, 1.0f });
-		newEntity->CreateComponent<TrailSpawner>(0.02f);
+		newEntity->CreateComponent<TrailSpawner>();
 		newEntity->CreateComponent<EdgeClamper>();
 		newEntity->CreateComponent<Transform>();
 		newEntity->CreateComponent<CenterSpawner>();
@@ -532,7 +531,7 @@ void CreateMenuParticle(std::shared_ptr<AF::ECS::Scene> scene)
 		std::shared_ptr<AF::ECS::Entity> newEntity = scene->CreateEntity();
 		newEntity->CreateComponent<EntityTag>(EntityTag::NONE);
 		newEntity->CreateComponent<BoxRenderer>(glm::vec4{ 1.0f, 1.0f, 1.0f, 1.0f });
-		newEntity->CreateComponent<TrailSpawner>(0.02f);
+		newEntity->CreateComponent<TrailSpawner>(0.04f);
 		newEntity->CreateComponent<EdgeKiller>();
 		newEntity->CreateComponent<Transform>();
 		newEntity->CreateComponent<EdgeSpawner>();
