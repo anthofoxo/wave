@@ -3,6 +3,7 @@
 #include "incbin.h"
 
 INCBIN_EXTERN(MainFont);
+INCBIN_EXTERN(AudioCoin);
 INCBIN_EXTERN(Ost00);
 INCBIN_EXTERN(Ost01);
 INCBIN_EXTERN(Ost02);

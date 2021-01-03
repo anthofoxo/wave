@@ -36,6 +36,16 @@ namespace AF
 		return m_Buffer[m_Position++];
 	}
 
+	void AudioSource::QueueBuffer(std::shared_ptr<AudioBuffer> buffer)
+	{
+		m_Queue.push_back(buffer);
+	}
+
+	bool AudioSource::IsComplete()
+	{
+		return m_Queue.empty();
+	}
+
 	AudioOutput::AudioOutput(int channels, int sampleRate)
 	{
 		m_Channels = channels;
@@ -69,38 +79,49 @@ namespace AF
 		AF_ASSERT(err == paNoError, "PortAudio error: {}", Pa_GetErrorText(err));
 	}
 
-	void AudioOutput::QueueBuffer(std::shared_ptr<AudioBuffer> buffer)
-	{
-		m_Queue.push_back(buffer);
-	}
-
 	int AudioOutput::OnStreamUpdate(const void* inputStream, void* outputStream, unsigned long frameCount, const PaStreamCallbackTimeInfo* timeInfo, PaStreamCallbackFlags statusFlags, void* userData)
 	{
+		
+
 		float* output = (float*) outputStream;
 		AudioOutput* owner = (AudioOutput*) userData;
 
+		owner->mutex.lock();
+
 		for (unsigned long i = 0; i < frameCount; ++i)
 		{
-			if (owner->m_Queue.empty())
+			AudioFrame<2> frame;
+
+			for (int j = owner->m_Sources.size() - 1; j >= 0; --j)
 			{
-				for (int j = 0; j < owner->m_Channels; ++j)
-					*output++ = 0.0f;
+				auto source = owner->m_Sources[j];
+
+				AudioFrame<2> sourceFrame;
+				source->NextFrame(sourceFrame);
+				frame += sourceFrame;
+
+				if (source->IsComplete())
+					owner->m_Sources.erase(owner->m_Sources.begin() + j);
 			}
-			else
+
+			for (int ci = 0; ci < 2; ++ci)
 			{
-				auto buffer = owner->m_Queue[0];
-
-				for (int j = 0; j < owner->m_Channels; ++j)
-					*output++ = buffer->NextSample() * owner->m_Volume;
-
-				if (buffer->IsComplete())
-				{
-					owner->m_Queue.erase(owner->m_Queue.begin());
-				}
+				*output++ = frame.m_Samples[ci] * owner->m_Volume;
 			}
 		}
 		
+		owner->mutex.unlock();
+
 		return 0;
+	}
+
+	void AudioOutput::AddSource(std::shared_ptr<AudioSource> buffer)
+	{
+		mutex.lock();
+
+		m_Sources.push_back(buffer);
+
+		mutex.unlock();
 	}
 
 	AudioMaster::AudioMaster()

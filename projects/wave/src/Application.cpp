@@ -99,8 +99,11 @@ namespace AF
 
 		std::thread thread = std::thread([&]()
 		{
-			auto output = m_AudioMaster.CreateAudioOutput(2, AF_STANDARD_SAMPLE_RATE);
-			output->m_Volume = 0.05f;
+			m_AudioOutput = m_AudioMaster.CreateAudioOutput(2, AF_STANDARD_SAMPLE_RATE);
+			m_AudioOutput->m_Volume = 0.2f;
+
+			auto musicSource = std::make_shared<AF::AudioSource>();
+			m_AudioOutput->AddSource(musicSource);
 
 			stb_vorbis* vorbisStream = nullptr;
 
@@ -117,11 +120,11 @@ namespace AF
 				m_DeltaTime = currentTime - lastTime;
 				lastTime = currentTime;
 
-				while (output->m_Queue.size() < 2)
+				while (musicSource->m_Queue.size() < 2)
 				{
 					auto buffer = std::make_shared<AudioBuffer>(AF_STANDARD_SAMPLE_RATE, 2);
 					LoadDataIntoBuffer(&vorbisStream, buffer);
-					output->QueueBuffer(buffer);
+					musicSource->QueueBuffer(buffer);
 				}
 
 				if (m_Keys.find(GLFW_KEY_L) != m_Keys.end())
@@ -132,7 +135,7 @@ namespace AF
 
 			stb_vorbis_close(vorbisStream);
 
-			m_AudioMaster.DeleteAudioOutput(output);
+			m_AudioMaster.DeleteAudioOutput(m_AudioOutput);
 		
 		});
 

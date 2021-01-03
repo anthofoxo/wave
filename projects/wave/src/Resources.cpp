@@ -1,6 +1,7 @@
 #include "incbin.h"
 
 INCBIN(MainFont, "res/Roboto-Regular.ttf");
+INCBIN(AudioCoin, "res/coin.ogg");
 INCBIN(Ost00, "res/music/00.ogg");
 INCBIN(Ost01, "res/music/01.ogg");
 INCBIN(Ost02, "res/music/02.ogg");

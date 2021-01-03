@@ -47,6 +47,7 @@ namespace AF
 		Renderer m_Renderer;
 		GLFWwindow* m_Window = nullptr;
 		AudioMaster m_AudioMaster = AudioMaster();
+		std::shared_ptr<AudioOutput> m_AudioOutput;
 
 		StateManager m_StateManager;
 	};

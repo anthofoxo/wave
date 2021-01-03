@@ -3,6 +3,7 @@
 #include <vector>
 #include <iostream>
 #include <typeinfo>
+#include <sstream>
 
 #include <GLFW/glfw3.h>
 #include <glad/glad.h>
@@ -15,11 +16,16 @@
 #include "Timer.h"
 #include "ECS.h"
 
+#define STB_VORBIS_HEADER_ONLY
+#include "vendor/stb_vorbis.c"
+
+#include "Resources.h"
+
 struct EntityTag : public AF::ECS::Component
 {
 	enum EntityTagType : uint8_t
 	{
-		NONE = 0, PLAYER, ENEMY, TRAIL
+		NONE = 0, PLAYER, ENEMY, TRAIL, COIN
 	};
 
 	EntityTag(EntityTagType type = NONE)
@@ -47,6 +53,11 @@ struct Transform : public AF::ECS::Component
 		glm::vec4 b = { other->m_Position, other->m_Size };
 
 		return (glm::abs((a.x + a.z / 2.0f) - (b.x + b.z / 2.0f)) * 2.0f < (a.z + b.z)) && (glm::abs((a.y + a.w / 2.0f) - (b.y + b.w / 2.0f)) * 2.0f < (a.w + b.w));
+	}
+
+	glm::vec2 Centered()
+	{
+		return m_Position + m_Size / 2.0f;
 	}
 
 	glm::vec2 m_Position;
@@ -200,6 +211,54 @@ struct Flasher : public AF::ECS::Component
 			}
 		}
 	}
+};
+
+float map(float value, float min1, float max1, float min2, float max2) {
+	return min2 + (value - min1) * (max2 - min2) / (max1 - min1);
+}
+
+struct CoinMover : public AF::ECS::Component
+{
+	CoinMover() = default;
+	virtual ~CoinMover() = default;
+
+	virtual void Start()
+	{
+		if (auto entity = m_Entity.lock())
+		{
+			if (auto scene = entity->m_Scene.lock())
+			{
+				for (auto other : scene->m_Entities)
+				{
+					auto tag = other->GetComponent<EntityTag>();
+
+					if (tag && tag->m_Type == EntityTag::PLAYER)
+					{
+						m_Player = other;
+						return;
+					}
+				}
+			}
+		}
+	}
+
+	virtual void Update() override
+	{
+		if (std::shared_ptr<AF::ECS::Entity> entity = m_Entity.lock())
+		{
+			std::shared_ptr<RigidBody> rb = entity->GetComponent<RigidBody>();
+			std::shared_ptr<Transform> tf = entity->GetComponent<Transform>();
+			auto playerTransform = m_Player->GetComponent<Transform>();
+
+			glm::vec2 direction = playerTransform->Centered() - tf->Centered();
+			float distance = glm::length(direction);
+			direction = glm::normalize(direction);
+
+			rb->m_Velocity = direction * glm::clamp(map(distance, 0.0f, 200.0, 1000.0f, 0.0f), 0.0f, 1000.0f);
+		}
+	}
+
+	std::shared_ptr<AF::ECS::Entity> m_Player;
 };
 
 struct EdgeKiller : public AF::ECS::Component
@@ -454,6 +513,37 @@ struct PlayerControlled : public AF::ECS::Component
 					}
 				}
 
+				for (auto other : scene->m_Entities)
+				{
+					auto tag = other->GetComponent<EntityTag>();
+
+					if (tag && tag->m_Type == EntityTag::COIN)
+					{
+						if (transform->IntersectsWith(other->GetComponent<Transform>()))
+						{
+							auto source = std::make_shared<AF::AudioSource>();
+							int error = 0;
+							stb_vorbis* vorbis = stb_vorbis_open_memory(gAudioCoinData, gAudioCoinSize, &error, nullptr);
+							int numSamples = stb_vorbis_stream_length_in_samples(vorbis);
+							int channels = stb_vorbis_get_info(vorbis).channels;
+
+							auto buffer = std::make_shared<AF::AudioBuffer>(numSamples / channels, channels);
+							stb_vorbis_get_samples_float_interleaved(vorbis, channels, buffer->m_Buffer, numSamples);
+							stb_vorbis_close(vorbis);
+
+							source->QueueBuffer(buffer);
+
+							//AF::GetApplication()->InvokeLater([source]()
+							//{
+								AF::GetApplication()->m_AudioOutput->AddSource(source);
+							//});
+
+							
+							other->Kill();
+						}
+					}
+				}
+
 				if (m_CurrentHealth <= 0.0f)
 				{
 					app->InvokeLater([]()
@@ -462,20 +552,22 @@ struct PlayerControlled : public AF::ECS::Component
 					});
 				}
 
-				m_CurrentHealth += app->m_DeltaTime * 5.0f;
+				m_CurrentHealth += app->m_DeltaTime * 3.0f;
 				m_CurrentHealth = glm::clamp(m_CurrentHealth, 0.0f, m_MaxHealth);
 
 				float width = 200.0f;
 				float healthWidth = m_CurrentHealth / m_MaxHealth * width;
 
-				app->m_Renderer.VGRP_FillRect(transform->m_Position + glm::vec2{ 100.0f + healthWidth, 100.0f }, { width - healthWidth, 20.0f }, { 1.0f, 1.0f, 1.0f, 0.5f });
-				app->m_Renderer.VGRP_FillRect(transform->m_Position + glm::vec2{ 100.0f, 100.0f }, { healthWidth, 20.0f }, { 1.0f, 0.0f, 0.0f, 0.75f });
+				app->m_Renderer.VGRP_FillRect(glm::vec2{ 0, 100 } + glm::vec2{ 100.0f + healthWidth, 100.0f }, { width - healthWidth, 20.0f }, { 1.0f, 1.0f, 1.0f, 0.5f });
+				app->m_Renderer.VGRP_FillRect(glm::vec2{ 0, 100 } + glm::vec2{ 100.0f, 100.0f }, { healthWidth, 20.0f }, { 1.0f, 0.0f, 0.0f, 0.75f });
+
+				
 			}
 		}
 	}
 
-	float m_MaxHealth = 100.0f;
-	float m_CurrentHealth = 100.0f;
+	float m_MaxHealth = 10.0f;
+	float m_CurrentHealth = m_MaxHealth;
 };
 
 void CreateBasicEnemy(std::shared_ptr<AF::ECS::Scene> scene)
@@ -490,6 +582,23 @@ void CreateBasicEnemy(std::shared_ptr<AF::ECS::Scene> scene)
 		newEntity->CreateComponent<Transform>();
 		newEntity->CreateComponent<RandomSpawner>();
 		newEntity->CreateComponent<RigidBody>();
+	});
+}
+
+void CreateCoin(std::shared_ptr<AF::ECS::Scene> scene)
+{
+	AF::GetApplication()->InvokeLater([scene]()
+	{
+		std::shared_ptr<AF::ECS::Entity> newEntity = scene->CreateEntity();
+		newEntity->CreateComponent<EntityTag>(EntityTag::COIN);
+		newEntity->CreateComponent<BoxRenderer>(glm::vec4{ 1.0f, 1.0f, 0.0f, 1.0f });
+		 newEntity->CreateComponent<TrailSpawner>();
+		// newEntity->CreateComponent<EdgeBouncer>();
+		auto transform = newEntity->CreateComponent<Transform>();
+		transform->m_Size = { 16, 16 };
+		newEntity->CreateComponent<RandomSpawner>(glm::vec2{ 0.0f, 0.0f });
+		newEntity->CreateComponent<RigidBody>();
+		newEntity->CreateComponent<CoinMover>();
 	});
 }
 
@@ -529,7 +638,7 @@ void CreateMenuParticle(std::shared_ptr<AF::ECS::Scene> scene)
 	AF::GetApplication()->InvokeLater([scene]()
 	{
 		std::shared_ptr<AF::ECS::Entity> newEntity = scene->CreateEntity();
-		newEntity->CreateComponent<EntityTag>(EntityTag::NONE);
+		newEntity->CreateComponent<EntityTag>(EntityTag::TRAIL);
 		newEntity->CreateComponent<BoxRenderer>(glm::vec4{ 1.0f, 1.0f, 1.0f, 1.0f });
 		newEntity->CreateComponent<TrailSpawner>(0.04f);
 		newEntity->CreateComponent<EdgeKiller>();
@@ -553,73 +662,40 @@ public:
 	{
 		auto* app = AF::GetApplication();
 
-		if (m_Timer.Update(static_cast<float>(app->m_DeltaTime)))
-		{
-			++m_CurrentLevel;
+		m_Time += app->m_DeltaTime;
 
+		unsigned int count = 0;
+
+		for (auto entity : m_Scene->m_Entities)
+		{
+			if (auto tag = entity->GetComponent<EntityTag>())
+			{
+				if (tag->m_Type == EntityTag::COIN) ++count;
+			}
+		}
+
+		if (count == 0)
+		{
 			
 
-			if (m_CurrentLevel == 4)
+			for (int i = 0; i < 5; ++i)
+				CreateCoin(m_Scene);
+
+			
+			if (m_CurrentLevel == 0)
 			{
-				/*std::vector<std::shared_ptr<Entity>> currentEntities;
-
-				for (auto entity : m_EntityManager.m_Entities)
-				{
-					if(entity->m_Tag == EntityTag::ENEMY)
-						currentEntities.push_back(entity);
-				}
-
-				for (auto entity : currentEntities)
-				{
-					m_EntityManager.RemoveEntity(entity);
-				}
-
-				for (auto entity : currentEntities)
-				{
-					auto enemy1 = std::make_shared<BasicEnemy>();
-					auto enemy2 = std::make_shared<BasicEnemy>();
-					auto enemy3 = std::make_shared<BasicEnemy>();
-					auto enemy4 = std::make_shared<BasicEnemy>();
-
-					m_EntityManager.AddEntity(enemy1);
-					m_EntityManager.AddEntity(enemy2);
-					m_EntityManager.AddEntity(enemy3);
-					m_EntityManager.AddEntity(enemy4);
-
-					enemy1->m_Size = entity->m_Size * 0.5f;
-					enemy2->m_Size = entity->m_Size * 0.5f;
-					enemy3->m_Size = entity->m_Size * 0.5f;
-					enemy4->m_Size = entity->m_Size * 0.5f;
-
-					enemy1->m_Position = entity->m_Position + glm::vec2(0.0f, 0.0f);
-					enemy2->m_Position = entity->m_Position + glm::vec2(0.0f, entity->m_Size.y * 0.25f);
-					enemy3->m_Position = entity->m_Position + glm::vec2(entity->m_Size.x * 0.25f, 0.0f);
-					enemy4->m_Position = entity->m_Position + glm::vec2(entity->m_Size.x * 0.25f, entity->m_Size.y * 0.25f);
-
-					enemy1->m_Velocity = entity->m_Velocity * 0.8f;
-					enemy2->m_Velocity = entity->m_Velocity * 0.8f;
-					enemy3->m_Velocity = entity->m_Velocity * 0.8f;
-					enemy4->m_Velocity = entity->m_Velocity * 0.8f;
-
-					float min = 32.0f;
-
-					enemy1->m_Velocity += glm::vec2{ glm::linearRand<float>(-min, min), glm::linearRand<float>(-min, min) };
-					enemy2->m_Velocity += glm::vec2{ glm::linearRand<float>(-min, min), glm::linearRand<float>(-min, min) };
-					enemy3->m_Velocity += glm::vec2{ glm::linearRand<float>(-min, min), glm::linearRand<float>(-min, min) };
-					enemy4->m_Velocity += glm::vec2{ glm::linearRand<float>(-min, min), glm::linearRand<float>(-min, min) };
-					
-				}*/
-
 			}
-			else if(m_CurrentLevel > 5)
+			else if (m_CurrentLevel > 10)
 			{
 				CreateFastEnemy(m_Scene);
-				
+
 			}
 			else
 			{
 				CreateBasicEnemy(m_Scene);
 			}
+
+			++m_CurrentLevel;
 		}
 
 		app->m_Renderer.BeginFrame(app->m_ReferenceSize);
@@ -628,6 +704,23 @@ public:
 
 		app->m_Renderer.BeginFrame(app->m_Size);
 		AF::Debugger::Update();
+
+		{
+
+			std::stringstream ss;
+
+			ss << fmt::format("Level: {}\nTime: {}\nScore: {}", m_CurrentLevel, static_cast<int>(m_Time), static_cast<int>(static_cast<double>(m_CurrentLevel) / m_Time * 1000.0));
+			
+
+			std::string string = ss.str();
+
+			nvgTextAlign(app->m_Renderer.m_Vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
+			nvgFontSize(app->m_Renderer.m_Vg, 36.0f);
+			app->m_Renderer.FillColor({ 1.0f, 1.0f, 1.0f, 1.0f });
+
+			nvgTextBox(app->m_Renderer.m_Vg, 8, app->m_Size.y - 208, app->m_Size.x - 8 * 2.0f, string.c_str(), nullptr);
+		}
+
 		app->m_Renderer.EndFrame();
 	}
 
@@ -640,15 +733,15 @@ public:
 	{
 	}
 
-	AF::Timer<float> m_Timer = AF::Timer<float>(5.0f);
 	int m_CurrentLevel = 0;
+	double m_Time = 0.0;
 };
 
 void MenuState::Update()
 {
 	auto* app = AF::GetApplication();
 
-	std::array<Button, 3> texts =
+	std::array<Button, 4> texts =
 	{
 		Button
 		{
@@ -665,6 +758,11 @@ void MenuState::Update()
 					AF::GetApplication()->m_StateManager.SetState(std::make_shared<GameState>());
 				});
 			}
+		},
+		Button
+		{
+			"Options",
+			nullptr
 		},
 		Button
 		{
@@ -694,7 +792,8 @@ void MenuState::Update()
 
 	if (app->m_PressedKeys.find(GLFW_KEY_SPACE) != app->m_PressedKeys.end())
 	{
-		texts[selectedOption].onClick();
+		if(texts[selectedOption].onClick)
+			texts[selectedOption].onClick();
 	}
 
 	selectedOption = glm::clamp<int>(selectedOption, 1, static_cast<int>(texts.size()) - 1);
